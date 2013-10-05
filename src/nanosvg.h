@@ -48,16 +48,16 @@ extern "C" {
 		
 struct NSVGPath
 {
-	float* pts;
-	int npts;
-	unsigned int id;
-	unsigned int fillColor;
-	unsigned int strokeColor;
-	float strokeWidth;
-	char hasFill;
-	char hasStroke;
-	char closed;
-	struct NSVGPath* next;
+	float* pts;					// Cubic bezier points: x0,y0, [cpx1,cpx1,cpx2,cpy2,x1,y1], ...
+	int npts;					// Total number of bezier points.
+	unsigned int shapeId;		// Sequence number if a SVG shape, used to identify paths belonging to same shape. 
+	unsigned int fillColor;		// Fill color
+	unsigned int strokeColor;	// Stroke color
+	float strokeWidth;			// Stroke width (scaled)
+	char hasFill;				// Flag indicating if fill exists.
+	char hasStroke;				// Flag indicating id store exists
+	char closed;				// Flag indicating if shapes should be treated as closed.
+	struct NSVGPath* next;		// Pointer to next path, or NULL if last element.
 };
 
 // Parses SVG file from a file, returns linked list of paths.
@@ -238,10 +238,10 @@ struct NSVGParser
 	float* pts;
 	int npts;
 	int cpts;
+	unsigned int shapeId;
 	struct NSVGPath* plist;
 	char pathFlag;
-	char defsFlag;
-	float tol;
+	char defsFlag;	
 };
 
 static void nsvg__xformSetIdentity(float* t)
@@ -472,6 +472,8 @@ static void nsvg__createPath(struct NSVGParser* p, char closed)
 	path->strokeColor = attr->strokeColor;
 	if (path->hasStroke)
 		path->strokeColor |= (unsigned int)(attr->strokeOpacity*255) << 24;
+
+	path->shapeId = p->shapeId;
 
 	path->next = p->plist;
 	p->plist = path;
@@ -1603,26 +1605,32 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 	} else if (strcmp(el, "rect") == 0) {
 		nsvg__pushAttr(p);
 		nsvg__parseRect(p, attr);
+		p->shapeId++;
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "circle") == 0) {
 		nsvg__pushAttr(p);
 		nsvg__parseCircle(p, attr);
+		p->shapeId++;
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "ellipse") == 0) {
 		nsvg__pushAttr(p);
 		nsvg__parseEllipse(p, attr);
+		p->shapeId++;
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "line") == 0)  {
 		nsvg__pushAttr(p);
 		nsvg__parseLine(p, attr);
+		p->shapeId++;
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "polyline") == 0)  {
 		nsvg__pushAttr(p);
 		nsvg__parsePoly(p, attr, 0);
+		p->shapeId++;
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "polygon") == 0)  {
 		nsvg__pushAttr(p);
 		nsvg__parsePoly(p, attr, 1);
+		p->shapeId++;
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 1;
@@ -1656,8 +1664,6 @@ struct NSVGPath* nsvgParse(char* input)
 	if (p == NULL) {
 		return NULL;
 	}
-
-	p->tol = 1.0f;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
 

@@ -1,7 +1,7 @@
 Nano SVG
 ==========
 
-![screenshot of some text rendered witht the sample program](/example/screenshot.png?raw=true)
+![screenshot of some splines rendered witht the sample program](/example/screenshot.png?raw=true)
 
 NanoSVG is a simple stupid single-header-file SVG parse. The output of the parser is a list of cubic bezier shapes.
 

@@ -21,5 +21,8 @@ test
 ehthumbs.db
 Thumbs.db
 
+## Build dir
+build/*
+
 ## xcode specific
 *xcuserdata*
