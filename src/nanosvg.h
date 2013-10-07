@@ -17,8 +17,8 @@
  * misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  *
- * The SVG parser is based on Anti-Graim Geometry SVG example
- * Copyright (C) 2002-2004 Maxim Shemanarev (McSeem) 
+ * The SVG parser is based on Anti-Graim Geometry 2.4 SVG example
+ * Copyright (C) 2002-2004 Maxim Shemanarev (McSeem) (http://www.antigrain.com/)
  *
  * Arc calculation code based on canvg (https://code.google.com/p/canvg/)
  *
