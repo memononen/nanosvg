@@ -14,19 +14,20 @@ NanoSVG supports a wide range of SVG features, if somehing is missing, feel free
 
 ``` C
 // Load
-struct SNVGPath* plist;
-plist = nsvgParseFromFile("test.svg.");
-
-// Use
-for (NSVGPath* it = plist; it; it = it->next) {
-	for (i = 0; i < npts-1; i += 3) {
-		float* p = &pts[i*2];
-		drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
+struct SNVGImage* image;
+image = nsvgParseFromFile("test.svg.");
+printf("size: %f x %f\n", image->width, image->height);
+// Use...
+for (shape = image->shapes; shape != NULL; shape = shape->next) {
+	for (path = shape->paths; path != NULL; path = path->next) {
+		for (i = 0; i < path->npts-1; i += 3) {
+			float* p = &path->pts[i*2];
+			drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
+		}
 	}
 }
-
 // Delete
-nsvgDelete(plist);
+nsvgDelete(image);
 ```
 
 ## Using NanoSVG in your project
