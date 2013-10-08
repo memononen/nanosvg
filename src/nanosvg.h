@@ -1658,11 +1658,9 @@ static void nsvg__parseSVG(struct NSVGParser* p, const char** attr)
 			if (strcmp(attr[i], "width") == 0) {
 				p->image->wunits[0] = '\0';
 				sscanf(attr[i + 1], "%f%s", &p->image->width, p->image->wunits);
-				printf("W units='%s'\n", p->image->wunits);
 			} else if (strcmp(attr[i], "height") == 0) {
 				p->image->hunits[0] = '\0';
 				sscanf(attr[i + 1], "%f%s", &p->image->height, p->image->hunits);
-				printf("H units='%s'\n", p->image->hunits);
 			}
 		}
 	}
