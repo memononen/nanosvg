@@ -98,11 +98,18 @@ void nsvgDelete(struct NSVGImage* image);
 #include <stdlib.h>
 #include <math.h>
 
-#define NSVG_PI 3.14159265358979323846264338327
+#define NSVG_PI 3.14159265358979323846264338327f
 #define NSVG_KAPPA90 0.5522847493f	// Lenght proportional to radius of a cubic bezier handle for 90deg arcs.
 
 #ifdef _MSC_VER
 	#pragma warning (disable: 4996) // Switch off security warnings
+	#ifdef __cplusplus
+	#define NSVG_INLINE inline
+	#else
+	#define NSVG_INLINE
+	#endif
+#else
+	#define NSVG_INLINE inline
 #endif
 
 
@@ -116,7 +123,7 @@ static int nsvg__isnum(char c)
 	return strchr("0123456789+-.eE", c) != 0;
 }
 
-static inline float nsvg__maxf(float a, float b) { return a > b ? a : b; }
+static NSVG_INLINE float nsvg__maxf(float a, float b) { return a > b ? a : b; }
 
 
 // Simple XML parser
@@ -469,11 +476,12 @@ static void nsvg__addShape(struct NSVGParser* p)
 {
 	struct NSVGAttrib* attr = nsvg__getAttr(p);
 	float scale = 1.0f;
+	struct NSVGShape* shape;
 
 	if (p->plist == NULL)
 		return;
 
-	struct NSVGShape* shape = (struct NSVGShape*)malloc(sizeof(struct NSVGShape));
+	shape = (struct NSVGShape*)malloc(sizeof(struct NSVGShape));
 	if (shape == NULL) goto error;
 	memset(shape, 0, sizeof(struct NSVGShape));
 
@@ -1250,7 +1258,8 @@ static void nsvg__pathArcTo(struct NSVGParser* p, float* cpx, float* cpy, float*
 	float x, y, tanx, tany, a, px, py, ptanx, ptany, t[6];
 	float sinrx, cosrx;
 	int fa, fs;
-	int i;
+	int i, ndivs;
+	float hda, kappa;
 
 	rx = fabsf(args[0]);				// y radius
 	ry = fabsf(args[1]);				// x radius
@@ -1284,8 +1293,8 @@ static void nsvg__pathArcTo(struct NSVGParser* p, float* cpx, float* cpy, float*
 	// Convert to center point parameterization.	
 	// http://www.w3.org/TR/SVG11/implnote.html#ArcImplementationNotes
 	// 1) Compute x1', y1'
-	x1p = cosrx * dx / 2.0 + sinrx * dy / 2.0;
-	y1p = -sinrx * dx / 2.0 + cosrx * dy / 2.0;
+	x1p = cosrx * dx / 2.0f + sinrx * dy / 2.0f;
+	y1p = -sinrx * dx / 2.0f + cosrx * dy / 2.0f;
 	d = nsvg__sqr(x1p)/nsvg__sqr(rx) + nsvg__sqr(y1p)/nsvg__sqr(ry);
 	if (d > 1) {
 		d = sqrtf(d);
@@ -1305,8 +1314,8 @@ static void nsvg__pathArcTo(struct NSVGParser* p, float* cpx, float* cpy, float*
 	cyp = s * -ry * x1p / rx;
 
 	// 3) Compute cx,cy from cx',cy'
-	cx = (x1 + x2)/2.0 + cosrx*cxp - sinrx*cyp;
-	cy = (y1 + y2)/2.0 + sinrx*cxp + cosrx*cyp;
+	cx = (x1 + x2)/2.0f + cosrx*cxp - sinrx*cyp;
+	cy = (y1 + y2)/2.0f + sinrx*cxp + cosrx*cyp;
 
 	// 4) Calculate theta1, and delta theta.
 	ux = (x1p - cxp) / rx;
@@ -1333,9 +1342,9 @@ static void nsvg__pathArcTo(struct NSVGParser* p, float* cpx, float* cpy, float*
 	t[4] = cx; t[5] = cy;
 
 	// Split arc into max 90 degree segments.
-	int ndivs = (int)(fabsf(da) / (NSVG_PI*0.5f) + 0.5f);
-	float hda = (da / (float)ndivs) / 2.0f;
-	float kappa = fabsf(4.0f / 3.0f * (1.0f - cosf(hda)) / sinf(hda));
+	ndivs = (int)(fabsf(da) / (NSVG_PI*0.5f) + 0.5f);
+	hda = (da / (float)ndivs) / 2.0f;
+	kappa = fabsf(4.0f / 3.0f * (1.0f - cosf(hda)) / sinf(hda));
 	if (da < 0.0f)
 		kappa = -kappa;
 
@@ -1645,7 +1654,7 @@ static void nsvg__parsePoly(struct NSVGParser* p, const char** attr, int closeFl
 		}
 	}
 	
-	nsvg__addPath(p, closeFlag);
+	nsvg__addPath(p, (char)closeFlag);
 
 	nsvg__addShape(p);
 }
@@ -1730,6 +1739,7 @@ static void nsvg__endElement(void* ud, const char* el)
 static void nsvg__content(void* ud, const char* s)
 {
 	// empty
+	ud; s; // prevent warnings
 }
 
 struct NSVGImage* nsvgParse(char* input)

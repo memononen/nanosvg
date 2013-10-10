@@ -121,6 +121,7 @@ void drawPath(float* pts, int npts, char closed, float tol)
 void drawControlPts(float* pts, int npts, char closed)
 {
 	int i;
+	closed; // prevent warnings
 
 	// Control lines
 	glColor4ubv(lineColor);
@@ -227,6 +228,7 @@ void drawframe(GLFWwindow* window)
 void resizecb(GLFWwindow* window, int width, int height)
 {
 	// Update and render
+	width; height; // prevent warnings
 	drawframe(window);
 }
 
