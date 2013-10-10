@@ -103,6 +103,7 @@ void nsvgDelete(struct NSVGImage* image);
 
 #ifdef _MSC_VER
 	#pragma warning (disable: 4996) // Switch off security warnings
+	#pragma warning (disable: 4100) // Switch off unreferenced formal parameter warnings
 	#ifdef __cplusplus
 	#define NSVG_INLINE inline
 	#else
@@ -605,7 +606,6 @@ static unsigned int nsvg__parseColorRGB(const char* str)
 	} else {
 		return NSVG_RGB(r,g,b);
 	}
-	return 0;
 }
 
 struct NSVGNamedColor {
@@ -1739,7 +1739,6 @@ static void nsvg__endElement(void* ud, const char* el)
 static void nsvg__content(void* ud, const char* s)
 {
 	// empty
-	ud; s; // prevent warnings
 }
 
 struct NSVGImage* nsvgParse(char* input)
