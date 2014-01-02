@@ -138,8 +138,8 @@ void drawControlPts(float* pts, int npts, char closed)
 	glPointSize(6.0f);
 	glColor4ubv(lineColor);
 
-	glVertex2f(pts[0],pts[1]);
 	glBegin(GL_POINTS);
+	glVertex2f(pts[0],pts[1]);
 	for (i = 0; i < npts-1; i += 3) {
 		float* p = &pts[i*2];
 		glVertex2f(p[6],p[7]);
@@ -149,9 +149,9 @@ void drawControlPts(float* pts, int npts, char closed)
 	// Points
 	glPointSize(3.0f);
 
+	glBegin(GL_POINTS);
 	glColor4ubv(bgColor);
 	glVertex2f(pts[0],pts[1]);
-	glBegin(GL_POINTS);
 	for (i = 0; i < npts-1; i += 3) {
 		float* p = &pts[i*2];
 		glColor4ubv(lineColor);

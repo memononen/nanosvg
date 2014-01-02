@@ -1399,6 +1399,11 @@ static void nsvg__parsePath(struct NSVGParser* p, const char** attr)
 							case 'm':
 							case 'M':
 								nsvg__pathMoveTo(p, &cpx, &cpy, args, cmd == 'm' ? 1 : 0);
+								// Moveto can be followed by multiple coordinate pairs,
+								// which should be treated as linetos.
+								cmd = (cmd =='m') ? 'l' : 'L';
+                                rargs = nsvg__getArgsPerElement(cmd);
+								break;
 							case 'l':
 							case 'L':
 								nsvg__pathLineTo(p, &cpx, &cpy, args, cmd == 'l' ? 1 : 0);
