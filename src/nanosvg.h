@@ -1384,6 +1384,7 @@ static void nsvg__parsePath(struct NSVGParser* p, const char** attr)
 			s = attr[i + 1];
 
 			nsvg__resetPath(p);
+			cpx = 0; cpy = 0;
 			closedFlag = 0;
 			nargs = 0;
 			
@@ -1450,7 +1451,6 @@ static void nsvg__parsePath(struct NSVGParser* p, const char** attr)
 						nsvg__resetPath(p);
 						closedFlag = 0;
 						nargs = 0;
-						cpx = 0; cpy = 0;
 					} else if (cmd == 'Z' || cmd == 'z') {
 						closedFlag = 1;
 						// Commit path.
