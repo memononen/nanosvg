@@ -1,7 +1,9 @@
 Nano SVG
 ==========
 
-![screenshot of some splines rendered witht the sample program](/example/screenshot.png?raw=true)
+## Parser
+
+![screenshot of some splines rendered witht the sample program](/example/screenshot-1.png?raw=true)
 
 NanoSVG is a simple stupid single-header-file SVG parse. The output of the parser is a list of cubic bezier shapes.
 
@@ -9,12 +11,20 @@ The library suits well for anything from rendering scalable icons in your editor
 
 NanoSVG supports a wide range of SVG features, if somehing is missing, feel free to create a pull request!
 
+## Rasterizer
+
+![screenshot of tiger.svg rendered with NanoSVG rasterizer](/example/screenshot-2.png?raw=true)
+
+The parser library is accompanied with really simpler SVG rasterizer. Currently it only renders flat filled shapes.
+
+The intended usage for the rasterizer is to for example bake icons of different size into a texture. The rasterizer is not particular fast or accurate, but it's small and packed in one header file.
+
 
 ## Example Usage
 
 ``` C
 // Load
-struct SNVGImage* image;
+struct NSVGimage* image;
 image = nsvgParseFromFile("test.svg.");
 printf("size: %f x %f\n", image->width, image->height);
 // Use...

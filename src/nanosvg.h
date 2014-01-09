@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Mikko Mononen memon@inside.org
+ * Copyright (c) 2013-14 Mikko Mononen memon@inside.org
  * 
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
