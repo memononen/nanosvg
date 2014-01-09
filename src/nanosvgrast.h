@@ -27,26 +27,30 @@ void nsvgDeleteRasterizer(struct NSVGrasterizer*);
 
 // The polygon rasterization is heavily based on stb_truetype rasterizer by Sean Barrett - http://nothings.org/
 
-#define NSVG__SUBSAMPLES 5
-
-#define NSVG__FIXSHIFT   10
-#define NSVG__FIX        (1 << NSVG__FIXSHIFT)
-#define NSVG__FIXMASK    (NSVG__FIX-1)
-
+#define NSVG__SUBSAMPLES	5
+#define NSVG__FIXSHIFT		10
+#define NSVG__FIX			(1 << NSVG__FIXSHIFT)
+#define NSVG__FIXMASK		(NSVG__FIX-1)
+#define NSVG__MEMPAGE_SIZE	1024
 
 struct NSVGedge {
    float x0,y0, x1,y1;
    int dir;
-//   struct NSVGedge* next;
+   struct NSVGedge* next;
 };
 
-struct NSVGactedge {
+struct NSVGactiveEdge {
 	int x,dx;
 	float ey;
 	int dir;
-	struct NSVGactedge *next;
+	struct NSVGactiveEdge *next;
 };
 
+struct NSVGmemPage {
+	unsigned char mem[NSVG__MEMPAGE_SIZE];
+	int size;
+	struct NSVGmemPage* next;
+};
 
 struct NSVGrasterizer
 {
@@ -56,10 +60,9 @@ struct NSVGrasterizer
 	int nedges;
 	int cedges;
 
-	struct NSVGactedge* actedges;
-	int nactedges;
-	int cactedges;
-	struct NSVGactedge* freelist;
+	struct NSVGactiveEdge* freelist;
+	struct NSVGmemPage* pages;
+	struct NSVGmemPage* curpage;
 
 	unsigned char* scanline;
 	int cscanline;
@@ -73,6 +76,7 @@ struct NSVGrasterizer* nsvgCreateRasterizer()
 	struct NSVGrasterizer* r = (struct NSVGrasterizer*)malloc(sizeof(struct NSVGrasterizer));
 	if (r == NULL) goto error;
 	memset(r, 0, sizeof(struct NSVGrasterizer));
+
 	return r;
 
 error:
@@ -82,13 +86,67 @@ error:
 
 void nsvgDeleteRasterizer(struct NSVGrasterizer* r)
 {
+	struct NSVGmemPage* p;
+
 	if (r == NULL) return;
+
+	p = r->pages;
+	while (p != NULL) {
+		struct NSVGmemPage* next = p->next;
+		free(p);
+		p = next;
+	}
+
 	if (r->edges) free(r->edges);
-	if (r->actedges) free(r->actedges);
 	if (r->scanline) free(r->scanline);
+
 	free(r);
 }
 
+static struct NSVGmemPage* nsvg__nextPage(struct NSVGrasterizer* r, struct NSVGmemPage* cur)
+{
+	struct NSVGmemPage *newp;
+
+	// If using existing chain, return the next page in chain
+	if (cur != NULL && cur->next != NULL) {
+		return cur->next;
+	}
+	
+	// Alloc new page
+	newp = (struct NSVGmemPage*)malloc(sizeof(struct NSVGmemPage));
+	if (newp == NULL) return NULL;
+	memset(newp, 0, sizeof(struct NSVGmemPage));
+	
+	// Add to linked list
+	if (cur != NULL)
+		cur->next = newp;
+	else
+		r->pages = newp;
+
+	return newp;
+}
+
+static void nsvg__resetPool(struct NSVGrasterizer* r)
+{
+	struct NSVGmemPage* p = r->pages;
+	while (p != NULL) {
+		p->size = 0;
+		p = p->next;
+	}
+	r->curpage = r->pages;
+}
+
+static unsigned char* nsvg__alloc(struct NSVGrasterizer* r, int size)
+{
+	unsigned char* buf;
+	if (size > NSVG__MEMPAGE_SIZE) return NULL;
+	if (r->curpage == NULL || r->curpage->size+size > NSVG__MEMPAGE_SIZE) {
+		r->curpage = nsvg__nextPage(r, r->curpage);
+	}
+	buf = &r->curpage->mem[r->curpage->size];
+	r->curpage->size += size;
+	return buf;
+}
 
 static void nsvg__addEdge(struct NSVGrasterizer* r, float x0, float y0, float x1, float y1)
 {
@@ -122,22 +180,7 @@ static void nsvg__addEdge(struct NSVGrasterizer* r, float x0, float y0, float x1
 	}
 }
 
-static float nsvg__distPtSeg(float x, float y, float px, float py, float qx, float qy)
-{
-	float pqx, pqy, dx, dy, d, t;
-	pqx = qx-px;
-	pqy = qy-py;
-	dx = x-px;
-	dy = y-py;
-	d = pqx*pqx + pqy*pqy;
-	t = pqx*dx + pqy*dy;
-	if (d > 0) t /= d;
-	if (t < 0) t = 0;
-	else if (t > 1) t = 1;
-	dx = px + t*pqx - x;
-	dy = py + t*pqy - y;
-	return dx*dx + dy*dy;
-}
+static float nsvg__absf(float x) { return x < 0 ? -x : x; }
 
 static void nsvg__flattenCubicBez(struct NSVGrasterizer* r, 
 								  float x1, float y1, float x2, float y2,
@@ -145,9 +188,15 @@ static void nsvg__flattenCubicBez(struct NSVGrasterizer* r,
 								  float tol, int level)
 {
 	float x12,y12,x23,y23,x34,y34,x123,y123,x234,y234,x1234,y1234;
-	float d;
 	
-	if (level > 12) return;
+	if (level > 10) return;
+
+	if (nsvg__absf(x1+x3-x2-x2) + nsvg__absf(y1+y3-y2-y2) + nsvg__absf(x2+x4-x3-x3) + nsvg__absf(y2+y4-y3-y3) < tol) {
+		nsvg__addEdge(r, r->px, r->py, x4, y4);
+		r->px = x4;
+		r->py = y4;
+		return;
+	}
 
 	x12 = (x1+x2)*0.5f;
 	y12 = (y1+y2)*0.5f;
@@ -162,14 +211,27 @@ static void nsvg__flattenCubicBez(struct NSVGrasterizer* r,
 	x1234 = (x123+x234)*0.5f;
 	y1234 = (y123+y234)*0.5f;
 
-	d = nsvg__distPtSeg(x1234, y1234, x1,y1, x4,y4);
-	if (d > tol*tol) {
-		nsvg__flattenCubicBez(r, x1,y1, x12,y12, x123,y123, x1234,y1234, tol, level+1); 
-		nsvg__flattenCubicBez(r, x1234,y1234, x234,y234, x34,y34, x4,y4, tol, level+1); 
-	} else {
-		nsvg__addEdge(r, r->px, r->py, x4, y4);
-		r->px = x4;
-		r->py = y4;
+	nsvg__flattenCubicBez(r, x1,y1, x12,y12, x123,y123, x1234,y1234, tol, level+1); 
+	nsvg__flattenCubicBez(r, x1234,y1234, x234,y234, x34,y34, x4,y4, tol, level+1); 
+}
+
+static void nsvg__flattenShape(struct NSVGrasterizer* r,
+							   struct NSVGshape* shape, float tx, float ty, float scale)
+{
+	struct NSVGpath* path;
+	float tol = 0.5f * 4.0f / scale;
+	int i;
+
+	for (path = shape->paths; path != NULL; path = path->next) {
+		// Flatten path
+		r->px = path->pts[0];
+		r->py = path->pts[1];
+		for (i = 0; i < path->npts-1; i += 3) {
+			float* p = &path->pts[i*2];
+			nsvg__flattenCubicBez(r, p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7], tol, 0);
+		}
+		// Close path
+		nsvg__addEdge(r, r->px,r->py, path->pts[0],path->pts[1]);
 	}
 }
 
@@ -184,9 +246,9 @@ static int nsvg__cmpEdge(const void *p, const void *q)
 }
 
 
-static struct NSVGactedge* nsvg__addActive(struct NSVGrasterizer* r, struct NSVGedge* e, float startPoint)
+static struct NSVGactiveEdge* nsvg__addActive(struct NSVGrasterizer* r, struct NSVGedge* e, float startPoint)
 {
-	struct NSVGactedge* z;
+	struct NSVGactiveEdge* z;
 
 	if (r->freelist != NULL) {
 		// Restore from freelist.
@@ -194,13 +256,8 @@ static struct NSVGactedge* nsvg__addActive(struct NSVGrasterizer* r, struct NSVG
 		r->freelist = z->next;
 	} else {
 		// Alloc new edge.
-		if (r->nactedges+1 > r->cactedges) {
-			r->cactedges = r->cactedges > 0 ? r->cactedges * 2 : 64;
-			r->actedges = (struct NSVGactedge*)realloc(r->actedges, sizeof(struct NSVGactedge) * r->cactedges);
-			if (r->actedges == NULL) return NULL;
-		}
-		z = &r->actedges[r->nactedges];
-		r->nactedges++;
+		z = (struct NSVGactiveEdge*)nsvg__alloc(r, sizeof(struct NSVGactiveEdge));
+		if (z == NULL) return NULL;
 	}
 
 	float dxdy = (e->x1 - e->x0) / (e->y1 - e->y0);
@@ -219,7 +276,7 @@ static struct NSVGactedge* nsvg__addActive(struct NSVGrasterizer* r, struct NSVG
 	return z;
 }
 
-static void nsvg__freeActive(struct NSVGrasterizer* r, struct NSVGactedge* z)
+static void nsvg__freeActive(struct NSVGrasterizer* r, struct NSVGactiveEdge* z)
 {
 	z->next = r->freelist;
 	r->freelist = z;
@@ -228,7 +285,7 @@ static void nsvg__freeActive(struct NSVGrasterizer* r, struct NSVGactedge* z)
 // note: this routine clips fills that extend off the edges... ideally this
 // wouldn't happen, but it could happen if the truetype glyph bounding boxes
 // are wrong, or if the user supplies a too-small bitmap
-static void nsvg__fillActiveEdges(unsigned char* scanline, int len, struct NSVGactedge* e, int maxWeight, int* xmin, int* xmax)
+static void nsvg__fillActiveEdges(unsigned char* scanline, int len, struct NSVGactiveEdge* e, int maxWeight, int* xmin, int* xmax)
 {
 	// non-zero winding fill
 	int x0 = 0, w = 0;
@@ -306,7 +363,7 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 
 static void nsvg__rasterizeSortedEdges(struct NSVGrasterizer *r, unsigned int color)
 {
-	struct NSVGactedge *active = NULL;
+	struct NSVGactiveEdge *active = NULL;
 	int y, s;
 	int e = 0;
 	int maxWeight = (255 / NSVG__SUBSAMPLES);  // weight per vertical scanline
@@ -319,12 +376,12 @@ static void nsvg__rasterizeSortedEdges(struct NSVGrasterizer *r, unsigned int co
 		for (s = 0; s < NSVG__SUBSAMPLES; ++s) {
 			// find center of pixel for this scanline
 			float scany = y*NSVG__SUBSAMPLES + s + 0.5f;
-			struct NSVGactedge **step = &active;
+			struct NSVGactiveEdge **step = &active;
 
 			// update all active edges;
 			// remove all active edges that terminate before the center of this scanline
 			while (*step) {
-				struct NSVGactedge *z = *step;
+				struct NSVGactiveEdge *z = *step;
 				if (z->ey <= scany) {
 					*step = z->next; // delete from list
 //					NSVG__assert(z->valid);
@@ -341,8 +398,8 @@ static void nsvg__rasterizeSortedEdges(struct NSVGrasterizer *r, unsigned int co
 				step = &active;
 				while (*step && (*step)->next) {
 					if ((*step)->x > (*step)->next->x) {
-						struct NSVGactedge* t = *step;
-						struct NSVGactedge* q = t->next;
+						struct NSVGactiveEdge* t = *step;
+						struct NSVGactiveEdge* q = t->next;
 						t->next = q->next;
 						q->next = t;
 						*step = q;
@@ -356,7 +413,7 @@ static void nsvg__rasterizeSortedEdges(struct NSVGrasterizer *r, unsigned int co
 			// insert all edges that start before the center of this scanline -- omit ones that also end on this scanline
 			while (e < r->nedges && r->edges[e].y0 <= scany) {
 				if (r->edges[e].y1 > scany) {
-					struct NSVGactedge* z = nsvg__addActive(r, &r->edges[e], scany);
+					struct NSVGactiveEdge* z = nsvg__addActive(r, &r->edges[e], scany);
 					if (z == NULL) break;
 					// find insertion point
 					if (active == NULL) {
@@ -367,7 +424,7 @@ static void nsvg__rasterizeSortedEdges(struct NSVGrasterizer *r, unsigned int co
 						active = z;
 					} else {
 						// find thing to insert AFTER
-						struct NSVGactedge* p = active;
+						struct NSVGactiveEdge* p = active;
 						while (p->next && p->next->x < z->x)
 							p = p->next;
 						// at this point, p->next->x is NOT < z->x
@@ -388,26 +445,6 @@ static void nsvg__rasterizeSortedEdges(struct NSVGrasterizer *r, unsigned int co
 		}
 	}
 
-}
-
-static void nsvg__flattenShape(struct NSVGrasterizer* r,
-							   struct NSVGshape* shape, float tx, float ty, float scale)
-{
-	struct NSVGpath* path;
-	float tol = 0.5f * scale;
-	int i;
-
-	for (path = shape->paths; path != NULL; path = path->next) {
-		// Flatten path
-		r->px = path->pts[0];
-		r->py = path->pts[1];
-		for (i = 0; i < path->npts-1; i += 3) {
-			float* p = &path->pts[i*2];
-			nsvg__flattenCubicBez(r, p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7], tol, 0);
-		}
-		// Close path
-		nsvg__addEdge(r, r->px,r->py, path->pts[0],path->pts[1]);
-	}
 }
 
 static void nsvg__unpremultiplyAlpha(unsigned char* image, int w, int h, int stride)
@@ -496,9 +533,9 @@ void nsvgRasterize(struct NSVGrasterizer* r,
 		if (!shape->hasFill)
 			continue;
 
-		r->nedges = 0;
-		r->nactedges = 0;
+		nsvg__resetPool(r);
 		r->freelist = NULL;
+		r->nedges = 0;
 
 		nsvg__flattenShape(r, shape, tx,ty,scale);
 

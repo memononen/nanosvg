@@ -26,6 +26,39 @@
 #define NANOSVGRAST_IMPLEMENTATION
 #include "nanosvgrast.h"
 
+static float minf(float a, float b) { return a < b ? a : b; }
+static float maxf(float a, float b) { return a > b ? a : b; }
+
+static void calcBounds(struct NSVGimage* image, float* bounds)
+{
+	struct NSVGshape* shape;
+	struct NSVGpath* path;
+	int i;
+	bounds[0] = FLT_MAX;
+	bounds[1] = FLT_MAX;
+	bounds[2] = -FLT_MAX;
+	bounds[3] = -FLT_MAX;
+	for (shape = image->shapes; shape != NULL; shape = shape->next) {
+		for (path = shape->paths; path != NULL; path = path->next) {
+			for (i = 0; i < path->npts; i++) {
+				float* p = &path->pts[i*2];
+				bounds[0] = minf(bounds[0], p[0]);
+				bounds[1] = minf(bounds[1], p[1]);
+				bounds[2] = maxf(bounds[2], p[0]);
+				bounds[3] = maxf(bounds[3], p[1]);
+			}
+		}
+	}
+}
+
+static void getImageSize(struct NSVGimage *image, int* w, int* h)
+{
+	float bounds[4];
+	if (image->width < 1 || image->height < 1)
+		calcBounds(image, bounds);
+	*w = image->width < 1 ? (bounds[2]+1) : image->width;
+	*h = image->height < 1 ? (bounds[3]+1) : image->height;
+}
 
 int main()
 {
@@ -39,8 +72,7 @@ int main()
 		printf("Could not open SVG image.\n");
 		goto error;
 	}
-	w = image->width;
-	h = image->height;
+	getImageSize(image, &w, &h);
 	if (w < 1 || h < 1) {
 		printf("Size of SVG not specified.\n");
 		goto error;
@@ -63,9 +95,7 @@ int main()
  	stbi_write_png("svg.png", w, h, 4, img, w*4);
 
 error:
-printf("delete rast\n");
 	nsvgDeleteRasterizer(rast);
-printf("delete image\n");
 	nsvgDelete(image);
 
 	return 0;
