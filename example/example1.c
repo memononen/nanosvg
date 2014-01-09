@@ -24,7 +24,7 @@
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg.h"
 
-struct NSVGImage* g_image = NULL;
+struct NSVGimage* g_image = NULL;
 
 static unsigned char bgColor[4] = {205,202,200,255};
 static unsigned char lineColor[4] = {0,160,192,255};
@@ -80,10 +80,10 @@ static void cubicBez(float x1, float y1, float x2, float y2,
 	}
 }
 
-static void calcBounds(struct NSVGImage* image, float* bounds)
+static void calcBounds(struct NSVGimage* image, float* bounds)
 {
-	struct NSVGShape* shape;
-	struct NSVGPath* path;
+	struct NSVGshape* shape;
+	struct NSVGpath* path;
 	int i;
 	bounds[0] = FLT_MAX;
 	bounds[1] = FLT_MAX;
@@ -167,8 +167,8 @@ void drawframe(GLFWwindow* window)
 {
 	int width = 0, height = 0;
 	float bounds[4], view[4], cx, cy, w, h, aspect, px;
-	struct NSVGShape* shape;
-	struct NSVGPath* path;
+	struct NSVGshape* shape;
+	struct NSVGpath* path;
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	glfwGetFramebufferSize(window, &width, &height);
@@ -253,7 +253,7 @@ int main()
 	glEnable(GL_LINE_SMOOTH);
 
 
-	g_image = nsvgParseFromFile("../example/nano.svg");
+	g_image = nsvgParseFromFile("../example/23.svg");
 	if (g_image == NULL) {
 		printf("Could not open SVG image.\n");
 		glfwTerminate();
