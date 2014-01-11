@@ -177,7 +177,7 @@ static void nsvg__parseElement(char* s,
 	if (*s) { *s++ = '\0'; }
 
 	// Get attribs
-	while (!end && *s && nattr < NSVG_XML_MAX_ATTRIBS-1) {
+	while (!end && *s && nattr < NSVG_XML_MAX_ATTRIBS-3) {
 		// Skip white space before the attrib name
 		while (*s && nsvg__isspace(*s)) s++;
 		if (!*s) break;
