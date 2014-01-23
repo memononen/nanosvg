@@ -513,7 +513,6 @@ error:
 
 static void nsvg__addPath(struct NSVGParser* p, char closed)
 {
-	float* t = NULL;
 	struct NSVGAttrib* attr = nsvg__getAttr(p);
 	struct NSVGpath* path = NULL;
 	int i;
@@ -534,9 +533,8 @@ static void nsvg__addPath(struct NSVGParser* p, char closed)
 	path->npts = p->npts;
 	
 	// Transform path.
-	t = attr->xform;
 	for (i = 0; i < p->npts; ++i)
-		nsvg__xformPoint(&path->pts[i*2], &path->pts[i*2+1], p->pts[i*2], p->pts[i*2+1], t);
+		nsvg__xformPoint(&path->pts[i*2], &path->pts[i*2+1], p->pts[i*2], p->pts[i*2+1], attr->xform);
 	
 	path->next = p->plist;
 	p->plist = path;
@@ -558,11 +556,7 @@ static const char* nsvg__getNextPathItem(const char* s, char* it)
 	while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
 	if (!*s) return s;
 	if (*s == '-' || *s == '+' || nsvg__isnum(*s)) {
-		while (*s == '-' || *s == '+') {
-			if (i < 63) it[i++] = *s;
-			s++;
-		}
-		while (*s && *s != '-' && *s != '+' && nsvg__isnum(*s)) {
+		while (*s && nsvg__isnum(*s)) {
 			if (i < 63) it[i++] = *s;
 			s++;
 		}
