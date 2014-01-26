@@ -119,6 +119,11 @@ static int nsvg__isspace(char c)
 	return strchr(" \t\n\v\f\r", c) != 0;
 }
 
+static int nsvg__isdigit(char c)
+{
+	return strchr("0123456789", c) != 0;
+}
+
 static int nsvg__isnum(char c)
 {
 	return strchr("0123456789+-.eE", c) != 0;
@@ -555,17 +560,48 @@ static const char* nsvg__getNextPathItem(const char* s, char* it)
 	// Skip white spaces and commas
 	while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
 	if (!*s) return s;
-	if (*s == '-' || *s == '+' || nsvg__isnum(*s)) {
-		while (*s && nsvg__isnum(*s)) {
+	if (*s == '-' || *s == '+' || nsvg__isdigit(*s)) {
+		// sign
+		if (*s == '-' || *s == '+') {
 			if (i < 63) it[i++] = *s;
 			s++;
 		}
+		// integer part
+		while (*s && nsvg__isdigit(*s)) {
+			if (i < 63) it[i++] = *s;
+			s++;
+		}
+		if (*s == '.') {
+			// decimal point
+			if (i < 63) it[i++] = *s;
+			s++;
+			// fraction part
+			while (*s && nsvg__isdigit(*s)) {
+				if (i < 63) it[i++] = *s;
+				s++;
+			}
+		}
+		// exponent
+		if (*s == 'e' || *s == 'E') {
+			if (i < 63) it[i++] = *s;
+			s++;
+			if (*s == '-' || *s == '+') {
+				if (i < 63) it[i++] = *s;
+				s++;
+			}
+			while (*s && nsvg__isdigit(*s)) {
+				if (i < 63) it[i++] = *s;
+				s++;
+			}
+		}
 		it[i] = '\0';
 	} else {
+		// Parse command
 		it[0] = *s++;
 		it[1] = '\0';
 		return s;
 	}
+
 	return s;
 }
 
@@ -773,7 +809,7 @@ static unsigned int nsvg__parseColorName(const char* str)
 		}
 	}
 
-	return 0;
+	return NSVG_RGB(128, 128, 128);
 }
 
 static unsigned int nsvg__parseColor(const char* str)
