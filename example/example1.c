@@ -29,9 +29,6 @@ struct NSVGimage* g_image = NULL;
 static unsigned char bgColor[4] = {205,202,200,255};
 static unsigned char lineColor[4] = {0,160,192,255};
 
-static float minf(float a, float b) { return a < b ? a : b; }
-static float maxf(float a, float b) { return a > b ? a : b; }
-
 static float distPtSeg(float x, float y, float px, float py, float qx, float qy)
 {
 	float pqx, pqy, dx, dy, d, t;
@@ -77,28 +74,6 @@ static void cubicBez(float x1, float y1, float x2, float y2,
 		cubicBez(x1234,y1234, x234,y234, x34,y34, x4,y4, tol, level+1); 
 	} else {
 		glVertex2f(x4, y4);
-	}
-}
-
-static void calcBounds(struct NSVGimage* image, float* bounds)
-{
-	struct NSVGshape* shape;
-	struct NSVGpath* path;
-	int i;
-	bounds[0] = FLT_MAX;
-	bounds[1] = FLT_MAX;
-	bounds[2] = -FLT_MAX;
-	bounds[3] = -FLT_MAX;
-	for (shape = image->shapes; shape != NULL; shape = shape->next) {
-		for (path = shape->paths; path != NULL; path = path->next) {
-			for (i = 0; i < path->npts; i++) {
-				float* p = &path->pts[i*2];
-				bounds[0] = minf(bounds[0], p[0]);
-				bounds[1] = minf(bounds[1], p[1]);
-				bounds[2] = maxf(bounds[2], p[0]);
-				bounds[3] = maxf(bounds[3], p[1]);
-			}
-		}
 	}
 }
 
@@ -166,7 +141,7 @@ void drawControlPts(float* pts, int npts, char closed)
 void drawframe(GLFWwindow* window)
 {
 	int width = 0, height = 0;
-	float bounds[4], view[4], cx, cy, w, h, aspect, px;
+	float view[4], cx, cy, hw, hh, aspect, px;
 	struct NSVGshape* shape;
 	struct NSVGpath* path;
 
@@ -183,24 +158,23 @@ void drawframe(GLFWwindow* window)
 	glLoadIdentity();
 
 	// Fit view to bounds
-	calcBounds(g_image, bounds);
-	cx = (bounds[0]+bounds[2])/2;
-	cy = (bounds[3]+bounds[1])/2;
-	w = (bounds[2]-bounds[0])/2;
-	h = (bounds[3]-bounds[1])/2;
+	cx = g_image->width*0.5f;
+	cy = g_image->height*0.5f;
+	hw = g_image->width*0.5f;
+	hh = g_image->height*0.5f;
 
-	if (width/w < height/h) {
+	if (width/hw < height/hh) {
 		aspect = (float)height / (float)width;
-		view[0] = cx - w * 1.2f;
-		view[2] = cx + w * 1.2f;
-		view[1] = cy - w * 1.2f * aspect;
-		view[3] = cy + w * 1.2f * aspect;
+		view[0] = cx - hw * 1.2f;
+		view[2] = cx + hw * 1.2f;
+		view[1] = cy - hw * 1.2f * aspect;
+		view[3] = cy + hw * 1.2f * aspect;
 	} else {
 		aspect = (float)width / (float)height;
-		view[0] = cx - h * 1.2f * aspect;
-		view[2] = cx + h * 1.2f * aspect;
-		view[1] = cy - h * 1.2f;
-		view[3] = cy + h * 1.2f;
+		view[0] = cx - hh * 1.2f * aspect;
+		view[2] = cx + hh * 1.2f * aspect;
+		view[1] = cy - hh * 1.2f;
+		view[3] = cy + hh * 1.2f;
 	}
 	// Size of one pixel.
 	px = (view[2] - view[1]) / (float)width;
@@ -213,6 +187,15 @@ void drawframe(GLFWwindow* window)
 	glColor4ub(255,255,255,255);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+
+	// Draw bounds
+	glColor4ub(0,0,0,64);
+	glBegin(GL_LINE_LOOP);
+	glVertex2f(0, 0);
+	glVertex2f(g_image->width, 0);
+	glVertex2f(g_image->width, g_image->height);
+	glVertex2f(0, g_image->height);
+	glEnd();
 
 	for (shape = g_image->shapes; shape != NULL; shape = shape->next) {
 		for (path = shape->paths; path != NULL; path = path->next) {
@@ -253,7 +236,7 @@ int main()
 	glEnable(GL_LINE_SMOOTH);
 
 
-	g_image = nsvgParseFromFile("../example/23.svg");
+	g_image = nsvgParseFromFile("../example/nano.svg", "px", 96.0f);
 	if (g_image == NULL) {
 		printf("Could not open SVG image.\n");
 		glfwTerminate();
