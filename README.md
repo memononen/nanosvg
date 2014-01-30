@@ -55,10 +55,11 @@ nsvgDelete(image);
 
 In order to use NanoSVG in your own project, just copy nanosvg.h to your project.
 In one C/C++ define `NANOSVG_IMPLEMENTATION` before including the library to expand the NanoSVG implementation in that file.
-NanoSVG depends on `stdio.h` and `math.h`, they should be included where the implementation is expanded before including NanoSVG. 
+NanoSVG depends on `stdio.h` ,`string.h` and `math.h`, they should be included where the implementation is expanded before including NanoSVG. 
 
 ``` C
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 #define NANOSVG_IMPLEMENTATION	// Expands implementation
 #include "nanosvg.h"
@@ -68,6 +69,7 @@ By default, NanoSVG parses only the most common colors. In order to get support 
 
 ``` C
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 #define NANOSVG_ALL_COLOR_KEYWORDS	// Include full list of color keywords.
 #define NANOSVG_IMPLEMENTATION		// Expands implementation
