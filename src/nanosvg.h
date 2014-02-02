@@ -1150,42 +1150,54 @@ static unsigned int nsvg__parseColor(const char* str)
 static float nsvg__convertToPixels(struct NSVGparser* p, float val, const char* units, int dir)
 {
 	struct NSVGattrib* attr;
-	// Convert units to pixels.
-	if (units[0] == '\0') {
-		return val;
-	} else if (units[0] == 'p' && units[1] == 'x') {
-		return val;
-	} else if (units[0] == 'p' && units[1] == 't') {
-		return val / 72.0f * p->dpi;
-	} else if (units[0] == 'p' && units[1] == 'c') {
-		return val / 6.0f * p->dpi;
-	} else if (units[0] == 'm' && units[1] == 'm') {
-		return val / 25.4f * p->dpi;
-	} else if (units[0] == 'c' && units[1] == 'm') {
-		return val / 2.54f * p->dpi;
-	} else if (units[0] == 'i' && units[1] == 'n') {
-		return val * p->dpi;
-	} else if (units[0] == '%') {
-		if (p != NULL) {
-			attr = nsvg__getAttr(p);
-			if (dir == 0)
-				return (val/100.0f) * nsvg__actualWidth(p);
-			else if (dir == 1)
-				return (val/100.0f) * nsvg__actualHeight(p);
-			else if (dir == 2)
-				return (val/100.0f) * nsvg__actualLength(p);
-		} else {
+
+	if (p != NULL) {
+		// Convert units to pixels.
+		if (units[0] == '\0') {
+			return val;
+		} else if (units[0] == 'p' && units[1] == 'x') {
+			return val;
+		} else if (units[0] == 'p' && units[1] == 't') {
+			return val / 72.0f * p->dpi;
+		} else if (units[0] == 'p' && units[1] == 'c') {
+			return val / 6.0f * p->dpi;
+		} else if (units[0] == 'm' && units[1] == 'm') {
+			return val / 25.4f * p->dpi;
+		} else if (units[0] == 'c' && units[1] == 'm') {
+			return val / 2.54f * p->dpi;
+		} else if (units[0] == 'i' && units[1] == 'n') {
+			return val * p->dpi;
+		} else if (units[0] == '%') {
+			if (p != NULL) {
+				attr = nsvg__getAttr(p);
+				if (dir == 0)
+					return (val/100.0f) * nsvg__actualWidth(p);
+				else if (dir == 1)
+					return (val/100.0f) * nsvg__actualHeight(p);
+				else if (dir == 2)
+					return (val/100.0f) * nsvg__actualLength(p);
+			} else {
+				return (val/100.0f);
+			}
+		} else if (units[0] == 'e' && units[1] == 'm') {
+			if (p != NULL) {
+				attr = nsvg__getAttr(p);
+				return val * attr->fontSize;
+			}
+		} else if (units[0] == 'e' && units[1] == 'x') {
+			if (p != NULL) {
+				attr = nsvg__getAttr(p);
+				return val * attr->fontSize * 0.52f; // x-height of Helvetica.
+			}
+		}
+	} else {
+		// Convert units to pixels.
+		if (units[0] == '\0') {
+			return val;
+		} else if (units[0] == 'p' && units[1] == 'x') {
+			return val;
+		} else if (units[0] == '%') {
 			return (val/100.0f);
-		}
-	} else if (units[0] == 'e' && units[1] == 'm') {
-		if (p != NULL) {
-			attr = nsvg__getAttr(p);
-			return val * attr->fontSize;
-		}
-	} else if (units[0] == 'e' && units[1] == 'x') {
-		if (p != NULL) {
-			attr = nsvg__getAttr(p);
-			return val * attr->fontSize * 0.52f; // x-height of Helvetica.
 		}
 	}
 	return val;
@@ -2386,7 +2398,7 @@ static void nsvg__scaleToViewbox(struct NSVGparser* p, const char* units)
 	ty = -p->viewMiny;
 	sx = p->viewWidth > 0 ? p->image->width / p->viewWidth : 0;
 	sy = p->viewHeight > 0 ? p->image->height / p->viewHeight : 0;
-	us = 1.0f / nsvg__convertToPixels(NULL, 1.0f, units, 0);
+	us = 1.0f / nsvg__convertToPixels(p, 1.0f, units, 0);
 
 	// Fix aspect ratio
 	if (p->alignType == NSVG_ALIGN_MEET) {
