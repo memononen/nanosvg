@@ -1814,7 +1814,7 @@ static void nsvg__pathArcTo(struct NSVGparser* p, float* cpx, float* cpy, float*
 
 static void nsvg__parsePath(struct NSVGparser* p, const char** attr)
 {
-	const char* s;
+	const char* s = NULL;
 	char cmd;
 	float args[10];
 	int nargs;
@@ -1824,11 +1824,10 @@ static void nsvg__parsePath(struct NSVGparser* p, const char** attr)
 	char closedFlag;
 	int i;
 	char item[64];
-	int dAttrIndex = -1;
 	
 	for (i = 0; attr[i]; i += 2) {
 		if (strcmp(attr[i], "d") == 0) {
-			dAttrIndex = i;
+			s = attr[i + 1];
 		} else {
 			tmp[0] = attr[i];
 			tmp[1] = attr[i + 1];
@@ -1838,10 +1837,8 @@ static void nsvg__parsePath(struct NSVGparser* p, const char** attr)
 		}
 	}
 
-	if(dAttrIndex >= 0)
+	if(s)
 	{
-		s = attr[dAttrIndex + 1];
-
 		nsvg__resetPath(p);
 		cpx = 0; cpy = 0;
 		closedFlag = 0;
