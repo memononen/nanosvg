@@ -1824,99 +1824,11 @@ static void nsvg__parsePath(struct NSVGparser* p, const char** attr)
 	char closedFlag;
 	int i;
 	char item[64];
+	int dAttrIndex = -1;
 	
 	for (i = 0; attr[i]; i += 2) {
 		if (strcmp(attr[i], "d") == 0) {
-			s = attr[i + 1];
-
-			nsvg__resetPath(p);
-			cpx = 0; cpy = 0;
-			closedFlag = 0;
-			nargs = 0;
-			
-			while (*s) {
-				s = nsvg__getNextPathItem(s, item);
-				if (!*item) break;
-				if (nsvg__isnum(item[0])) {
-					if (nargs < 10)
-						args[nargs++] = (float)atof(item);
-					if (nargs >= rargs) {
-						switch (cmd) {
-							case 'm':
-							case 'M':
-								nsvg__pathMoveTo(p, &cpx, &cpy, args, cmd == 'm' ? 1 : 0);
-								// Moveto can be followed by multiple coordinate pairs,
-								// which should be treated as linetos.
-								cmd = (cmd =='m') ? 'l' : 'L';
-                                rargs = nsvg__getArgsPerElement(cmd);
-								break;
-							case 'l':
-							case 'L':
-								nsvg__pathLineTo(p, &cpx, &cpy, args, cmd == 'l' ? 1 : 0);
-								break;
-							case 'H':
-							case 'h':
-								nsvg__pathHLineTo(p, &cpx, &cpy, args, cmd == 'h' ? 1 : 0);
-								break;
-							case 'V':
-							case 'v':
-								nsvg__pathVLineTo(p, &cpx, &cpy, args, cmd == 'v' ? 1 : 0);
-								break;
-							case 'C':
-							case 'c':
-								nsvg__pathCubicBezTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 'c' ? 1 : 0);
-								break;
-							case 'S':
-							case 's':
-								nsvg__pathCubicBezShortTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 's' ? 1 : 0);
-								break;
-							case 'Q':
-							case 'q':
-								nsvg__pathQuadBezTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 'q' ? 1 : 0);
-								break;
-							case 'T':
-							case 't':
-								nsvg__pathQuadBezShortTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 's' ? 1 : 0);
-								break;
-							case 'A':
-							case 'a':
-								nsvg__pathArcTo(p, &cpx, &cpy, args, cmd == 'a' ? 1 : 0);
-								break;
-							default:
-								if (nargs >= 2) {
-									cpx = args[nargs-2];
-									cpy = args[nargs-1];
-								}
-								break;
-						}
-						nargs = 0;
-					}
-				} else {
-					cmd = item[0];
-					rargs = nsvg__getArgsPerElement(cmd);
-					if (cmd == 'M' || cmd == 'm') {
-						// Commit path.
-						if (p->npts > 0)
-							nsvg__addPath(p, closedFlag);
-						// Start new subpath.
-						nsvg__resetPath(p);
-						closedFlag = 0;
-						nargs = 0;
-					} else if (cmd == 'Z' || cmd == 'z') {
-						closedFlag = 1;
-						// Commit path.
-						if (p->npts > 0)
-							nsvg__addPath(p, closedFlag);
-						// Start new subpath.
-						nsvg__resetPath(p);
-						closedFlag = 0;
-						nargs = 0;
-					}
-				}
-			}
-			// Commit path.
-			if (p->npts)
-				nsvg__addPath(p, closedFlag);	
+			dAttrIndex = i;
 		} else {
 			tmp[0] = attr[i];
 			tmp[1] = attr[i + 1];
@@ -1924,6 +1836,100 @@ static void nsvg__parsePath(struct NSVGparser* p, const char** attr)
 			tmp[3] = 0;
 			nsvg__parseAttribs(p, tmp);
 		}
+	}
+
+	if(dAttrIndex >= 0)
+	{
+		s = attr[dAttrIndex + 1];
+
+		nsvg__resetPath(p);
+		cpx = 0; cpy = 0;
+		closedFlag = 0;
+		nargs = 0;
+		
+		while (*s) {
+			s = nsvg__getNextPathItem(s, item);
+			if (!*item) break;
+			if (nsvg__isnum(item[0])) {
+				if (nargs < 10)
+					args[nargs++] = (float)atof(item);
+				if (nargs >= rargs) {
+					switch (cmd) {
+						case 'm':
+						case 'M':
+							nsvg__pathMoveTo(p, &cpx, &cpy, args, cmd == 'm' ? 1 : 0);
+							// Moveto can be followed by multiple coordinate pairs,
+							// which should be treated as linetos.
+							cmd = (cmd =='m') ? 'l' : 'L';
+                            rargs = nsvg__getArgsPerElement(cmd);
+							break;
+						case 'l':
+						case 'L':
+							nsvg__pathLineTo(p, &cpx, &cpy, args, cmd == 'l' ? 1 : 0);
+							break;
+						case 'H':
+						case 'h':
+							nsvg__pathHLineTo(p, &cpx, &cpy, args, cmd == 'h' ? 1 : 0);
+							break;
+						case 'V':
+						case 'v':
+							nsvg__pathVLineTo(p, &cpx, &cpy, args, cmd == 'v' ? 1 : 0);
+							break;
+						case 'C':
+						case 'c':
+							nsvg__pathCubicBezTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 'c' ? 1 : 0);
+							break;
+						case 'S':
+						case 's':
+							nsvg__pathCubicBezShortTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 's' ? 1 : 0);
+							break;
+						case 'Q':
+						case 'q':
+							nsvg__pathQuadBezTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 'q' ? 1 : 0);
+							break;
+						case 'T':
+						case 't':
+							nsvg__pathQuadBezShortTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 's' ? 1 : 0);
+							break;
+						case 'A':
+						case 'a':
+							nsvg__pathArcTo(p, &cpx, &cpy, args, cmd == 'a' ? 1 : 0);
+							break;
+						default:
+							if (nargs >= 2) {
+								cpx = args[nargs-2];
+								cpy = args[nargs-1];
+							}
+							break;
+					}
+					nargs = 0;
+				}
+			} else {
+				cmd = item[0];
+				rargs = nsvg__getArgsPerElement(cmd);
+				if (cmd == 'M' || cmd == 'm') {
+					// Commit path.
+					if (p->npts > 0)
+						nsvg__addPath(p, closedFlag);
+					// Start new subpath.
+					nsvg__resetPath(p);
+					closedFlag = 0;
+					nargs = 0;
+				} else if (cmd == 'Z' || cmd == 'z') {
+					closedFlag = 1;
+					// Commit path.
+					if (p->npts > 0)
+						nsvg__addPath(p, closedFlag);
+					// Start new subpath.
+					nsvg__resetPath(p);
+					closedFlag = 0;
+					nargs = 0;
+				}
+			}
+		}
+		// Commit path.
+		if (p->npts)
+			nsvg__addPath(p, closedFlag);	
 	}
 
 	nsvg__addShape(p);
