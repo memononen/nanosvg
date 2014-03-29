@@ -663,6 +663,7 @@ static struct NSVGgradientData* nsvg__findGradientData(struct NSVGparser* p, con
 	while (grad) {
 		if (strcmp(grad->id, id) == 0)
 			return grad;
+		grad = grad->next;
 	}
 	return NULL;
 }
