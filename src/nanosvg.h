@@ -1617,7 +1617,7 @@ static void nsvg__pathCubicBezShortTo(struct NSVGparser* p, float* cpx, float* c
 	
 	cx1 = 2*x1 - *cpx2;
 	cy1 = 2*y1 - *cpy2;
-	
+
 	nsvg__cubicBezTo(p, cx1,cy1, cx2,cy2, x2,y2);
 	
 	*cpx2 = cx2;
@@ -1646,11 +1646,12 @@ static void nsvg__pathQuadBezTo(struct NSVGparser* p, float* cpx, float* cpy,
 		y2 = args[3];
 	}
 
-	// Convert to cubix bezier
+	// Convert to cubic bezier
 	cx1 = x1 + 2.0f/3.0f*(cx - x1);
 	cy1 = y1 + 2.0f/3.0f*(cy - y1);
 	cx2 = x2 + 2.0f/3.0f*(cx - x2);
 	cy2 = y2 + 2.0f/3.0f*(cy - y2);
+
 	nsvg__cubicBezTo(p, cx1,cy1, cx2,cy2, x2,y2);
 		
 	*cpx2 = cx;
@@ -1683,6 +1684,7 @@ static void nsvg__pathQuadBezShortTo(struct NSVGparser* p, float* cpx, float* cp
 	cy1 = y1 + 2.0f/3.0f*(cy - y1);
 	cx2 = x2 + 2.0f/3.0f*(cx - x2);
 	cy2 = y2 + 2.0f/3.0f*(cy - y2);
+
 	nsvg__cubicBezTo(p, cx1,cy1, cx2,cy2, x2,y2);
 	
 	*cpx2 = cx;
@@ -1870,20 +1872,24 @@ static void nsvg__parsePath(struct NSVGparser* p, const char** attr)
 							nsvg__pathMoveTo(p, &cpx, &cpy, args, cmd == 'm' ? 1 : 0);
 							// Moveto can be followed by multiple coordinate pairs,
 							// which should be treated as linetos.
-							cmd = (cmd =='m') ? 'l' : 'L';
+							cmd = (cmd == 'm') ? 'l' : 'L';
                             rargs = nsvg__getArgsPerElement(cmd);
+                            cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'l':
 						case 'L':
 							nsvg__pathLineTo(p, &cpx, &cpy, args, cmd == 'l' ? 1 : 0);
+                            cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'H':
 						case 'h':
 							nsvg__pathHLineTo(p, &cpx, &cpy, args, cmd == 'h' ? 1 : 0);
+                            cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'V':
 						case 'v':
 							nsvg__pathVLineTo(p, &cpx, &cpy, args, cmd == 'v' ? 1 : 0);
+                            cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'C':
 						case 'c':
@@ -1904,11 +1910,13 @@ static void nsvg__parsePath(struct NSVGparser* p, const char** attr)
 						case 'A':
 						case 'a':
 							nsvg__pathArcTo(p, &cpx, &cpy, args, cmd == 'a' ? 1 : 0);
+                            cpx2 = cpx; cpy2 = cpy;
 							break;
 						default:
 							if (nargs >= 2) {
 								cpx = args[nargs-2];
 								cpy = args[nargs-1];
+	                            cpx2 = cpx; cpy2 = cpy;
 							}
 							break;
 					}
