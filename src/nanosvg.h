@@ -312,18 +312,22 @@ int nsvg__parseXML(char* input,
 #define NSVG_USER_SPACE 0
 #define NSVG_OBJECT_SPACE 1
 
+struct NSVGlinearData {
+	float x1, y1, x2, y2;
+};
+
+struct NSVGradialData {
+	float cx, cy, r, fx, fy;
+};
+
 struct NSVGgradientData
 {
 	char id[64];
 	char ref[64];
 	char type;
 	union {
-		struct {
-			float x1, y1, x2, y2;
-		} linear;
-		struct {
-			float cx, cy, r, fx, fy;
-		} radial;
+		struct NSVGlinearData linear;
+		struct NSVGradialData radial;
 	};
 	char spread;
 	char units;
@@ -673,7 +677,7 @@ static struct NSVGgradientData* nsvg__findGradientData(struct NSVGparser* p, con
 	return NULL;
 }
 
-static struct NSVGgradient* nsvg__createGradient(struct NSVGparser* p, const char* id, const float* bounds, char* paintType)
+static struct NSVGgradient* nsvg__createGradient(struct NSVGparser* p, const char* id, const float*, char* paintType)
 {
 	struct NSVGattrib* attr = nsvg__getAttr(p);
 	struct NSVGgradientData* data = NULL;
@@ -2350,7 +2354,7 @@ static void nsvg__endElement(void* ud, const char* el)
 	}
 }
 
-static void nsvg__content(void* ud, const char* s)
+static void nsvg__content(void*, const char*)
 {
 	// empty
 }
