@@ -24,7 +24,7 @@
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg.h"
 
-struct NSVGimage* g_image = NULL;
+NSVGimage* g_image = NULL;
 
 static unsigned char bgColor[4] = {205,202,200,255};
 static unsigned char lineColor[4] = {0,160,192,255};
@@ -142,8 +142,8 @@ void drawframe(GLFWwindow* window)
 {
 	int width = 0, height = 0;
 	float view[4], cx, cy, hw, hh, aspect, px;
-	struct NSVGshape* shape;
-	struct NSVGpath* path;
+	NSVGshape* shape;
+	NSVGpath* path;
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	glfwGetFramebufferSize(window, &width, &height);

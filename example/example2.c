@@ -28,8 +28,8 @@
 
 int main()
 {
-	struct NSVGimage *image = NULL;
-	struct NSVGrasterizer *rast = NULL;
+	NSVGimage *image = NULL;
+	NSVGrasterizer *rast = NULL;
 	unsigned char* img = NULL;
 	int w, h;
 	const char* filename = "../example/23.svg";
