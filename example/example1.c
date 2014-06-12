@@ -93,7 +93,7 @@ void drawPath(float* pts, int npts, char closed, float tol)
 	glEnd();
 }
 
-void drawControlPts(float* pts, int npts, char closed)
+void drawControlPts(float* pts, int npts)
 {
 	int i;
 
@@ -200,7 +200,7 @@ void drawframe(GLFWwindow* window)
 	for (shape = g_image->shapes; shape != NULL; shape = shape->next) {
 		for (path = shape->paths; path != NULL; path = path->next) {
 			drawPath(path->pts, path->npts, path->closed, px * 1.5f);
-			drawControlPts(path->pts, path->npts, path->closed);
+			drawControlPts(path->pts, path->npts);
 		}
 	}
 
@@ -210,6 +210,8 @@ void drawframe(GLFWwindow* window)
 void resizecb(GLFWwindow* window, int width, int height)
 {
 	// Update and render
+	NSVG_NOTUSED(width);
+	NSVG_NOTUSED(height);
 	drawframe(window);
 }
 

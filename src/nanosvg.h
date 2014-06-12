@@ -157,6 +157,7 @@ void nsvgDelete(struct NSVGimage* image);
 #define NSVG_ALIGN_MEET 1
 #define NSVG_ALIGN_SLICE 2
 
+#define NSVG_NOTUSED(v) for(;;) { (void)(1 ? (void)0 : ( (void)(v) ) ); }
 #define NSVG_RGB(r, g, b) (((unsigned int)r) | ((unsigned int)g << 8) | ((unsigned int)b << 16))
 
 #ifdef _MSC_VER
@@ -219,6 +220,7 @@ static void nsvg__parseElement(char* s,
 	char* name;
 	int start = 0;
 	int end = 0;
+	char quote;
 	
 	// Skip white space after the '<'
 	while (*s && nsvg__isspace(*s)) s++;
@@ -254,12 +256,13 @@ static void nsvg__parseElement(char* s,
 		while (*s && !nsvg__isspace(*s) && *s != '=') s++;
 		if (*s) { *s++ = '\0'; }
 		// Skip until the beginning of the value.
-		while (*s && *s != '\"') s++;
+		while (*s && *s != '\"' && *s != '\'') s++;
 		if (!*s) break;
+		quote = *s;
 		s++;
 		// Store value and find the end of it.
 		attr[nattr++] = s;
-		while (*s && *s != '\"') s++;
+		while (*s && *s != quote) s++;
 		if (*s) { *s++ = '\0'; }
 	}
 	
@@ -686,6 +689,7 @@ static struct NSVGgradient* nsvg__createGradient(struct NSVGparser* p, const cha
 	struct NSVGgradient* grad;
 	float dx, dy, d;
 	int nstops = 0;
+	NSVG_NOTUSED(bounds);
 
 	data = nsvg__findGradientData(p, id);
 	if (data == NULL) return NULL;
@@ -2356,6 +2360,8 @@ static void nsvg__endElement(void* ud, const char* el)
 
 static void nsvg__content(void*, const char*)
 {
+	NSVG_NOTUSED(ud);
+	NSVG_NOTUSED(s);
 	// empty
 }
 
