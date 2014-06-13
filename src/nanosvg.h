@@ -626,7 +626,12 @@ static void nsvg__addPoint(NSVGparser* p, float x, float y)
 
 static void nsvg__moveTo(NSVGparser* p, float x, float y)
 {
-	nsvg__addPoint(p, x, y);
+	if (p->npts > 0) {
+		p->pts[(p->npts-1)*2+0] = x;
+		p->pts[(p->npts-1)*2+1] = y;
+	} else {
+		nsvg__addPoint(p, x, y);
+	}
 }
 
 static void nsvg__lineTo(NSVGparser* p, float x, float y)
@@ -826,7 +831,7 @@ static void nsvg__addPath(NSVGparser* p, char closed)
 	float* curve;
 	int i;
 	
-	if (p->npts == 0)
+	if (p->npts < 4)
 		return;
 
 	if (closed)
@@ -1268,6 +1273,7 @@ static int nsvg__parseTranslate(float* xform, const char* str)
 	int na = 0;
 	int len = nsvg__parseTransformArgs(str, args, 2, &na);
 	if (na == 1) args[1] = 0.0;
+
 	nsvg__xformSetTranslation(t, args[0], args[1]);
 	memcpy(xform, t, sizeof(float)*6);
 	return len;
@@ -1860,8 +1866,7 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 		}
 	}
 
-	if(s)
-	{
+	if (s) {
 		nsvg__resetPath(p);
 		cpx = 0; cpy = 0;
 		closedFlag = 0;
@@ -1944,10 +1949,16 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 				} else if (cmd == 'Z' || cmd == 'z') {
 					closedFlag = 1;
 					// Commit path.
-					if (p->npts > 0)
+					if (p->npts > 0) {
+						// Move current point to first point
+						cpx = p->pts[0];
+						cpy = p->pts[1];
+						cpx2 = cpx; cpy2 = cpy;
 						nsvg__addPath(p, closedFlag);
+					}
 					// Start new subpath.
 					nsvg__resetPath(p);
+					nsvg__moveTo(p, cpx, cpy);
 					closedFlag = 0;
 					nargs = 0;
 				}
