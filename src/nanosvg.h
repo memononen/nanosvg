@@ -1326,15 +1326,15 @@ static int nsvg__parseRotate(float* xform, const char* str)
 
 	if (na > 1) {
 		nsvg__xformSetTranslation(t, -args[1], -args[2]);
-		nsvg__xformPremultiply(m, t);
+		nsvg__xformMultiply(m, t);
 	}
-	
+
 	nsvg__xformSetRotation(t, args[0]/180.0f*NSVG_PI);
-	nsvg__xformPremultiply(m, t);
+	nsvg__xformMultiply(m, t);
 
 	if (na > 1) {
 		nsvg__xformSetTranslation(t, args[1], args[2]);
-		nsvg__xformPremultiply(m, t);
+		nsvg__xformMultiply(m, t);
 	}
 
 	memcpy(xform, m, sizeof(float)*6);
