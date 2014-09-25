@@ -2380,6 +2380,7 @@ static void nsvg__imageBounds(NSVGparser* p, float* bounds)
 {
 	NSVGshape* shape;
 	shape = p->image->shapes;
+	if (shape == NULL) return;
 	bounds[0] = shape->bounds[0];
 	bounds[1] = shape->bounds[1];
 	bounds[2] = shape->bounds[2];
