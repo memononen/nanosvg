@@ -479,7 +479,7 @@ static int nsvg__ptInBounds(float* pt, float* bounds)
 
 static double nsvg__evalBezier(double t, double p0, double p1, double p2, double p3)
 {
-	float it = 1.0-t;
+	double it = 1.0-t;
 	return it*it*it*p0 + 3.0*it*it*t*p1 + 3.0*it*t*t*p2 + t*t*t*p3;
 }
 
@@ -2380,6 +2380,7 @@ static void nsvg__imageBounds(NSVGparser* p, float* bounds)
 {
 	NSVGshape* shape;
 	shape = p->image->shapes;
+	if (shape == NULL) return;
 	bounds[0] = shape->bounds[0];
 	bounds[1] = shape->bounds[1];
 	bounds[2] = shape->bounds[2];
