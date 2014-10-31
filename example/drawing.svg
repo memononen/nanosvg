@@ -53,12 +53,12 @@
      id="layer1"
      transform="translate(0,-52.362183)">
     <path
-       style="fill:#ff5555;stroke:#000000;stroke-width:1.62107277px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       style="fill:#ff5555;stroke:#000000;stroke-width:10.62107277px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 131.73911,422.01626 c 0,146.85769 43.82213,215.39128 201.5818,141.96244 157.75968,-73.42885 188.43518,-107.69564 354.95926,78.32409 166.5241,186.01973 210.34624,244.76282 162.1419,-122.3814 -48.20435,-367.1442 -4.38221,34.26679 -131.46641,-24.47627 C 591.87149,436.70204 732.10231,191.93923 543.66715,187.04398 355.23198,182.14871 574.34264,265.36807 534.90271,368.16845 495.4628,470.96883 355.23198,627.61702 311.40985,475.8641 267.58772,324.11115 193.09009,333.90166 131.73911,422.01626 z"
        id="path2985"
        inkscape:connector-curvature="0" />
     <rect
-       style="fill:#00ffff"
+       style="fill:#00ffff;stroke:#000000;stroke-width:10.62107277px;"
        id="rect2987"
        width="390.01697"
        height="200.70551"

@@ -80,10 +80,18 @@ void nsvgDeleteRasterizer(NSVGrasterizer*);
 #define NSVG__MEMPAGE_SIZE	1024
 
 typedef struct NSVGedge {
-   float x0,y0, x1,y1;
-   int dir;
-   struct NSVGedge* next;
+	float x0,y0, x1,y1;
+	int dir;
+	struct NSVGedge* next;
 } NSVGedge;
+
+typedef struct NSVGpoint {
+	float x, y;
+	float dx, dy;
+	float len;
+	float dmx, dmy;
+	unsigned char flags;
+} NSVGpoint;
 
 typedef struct NSVGactiveEdge {
 	int x,dx;
@@ -109,9 +117,16 @@ struct NSVGrasterizer
 {
 	float px, py;
 
-	struct NSVGedge* edges;
+	float tessTol;
+	float distTol;
+
+	NSVGedge* edges;
 	int nedges;
 	int cedges;
+
+	NSVGpoint* points;
+	int npoints;
+	int cpoints;
 
 	NSVGactiveEdge* freelist;
 	NSVGmemPage* pages;
@@ -129,6 +144,9 @@ NSVGrasterizer* nsvgCreateRasterizer()
 	NSVGrasterizer* r = (NSVGrasterizer*)malloc(sizeof(NSVGrasterizer));
 	if (r == NULL) goto error;
 	memset(r, 0, sizeof(NSVGrasterizer));
+
+	r->tessTol = 0.25f;
+	r->distTol = 0.01f;
 
 	return r;
 
@@ -151,6 +169,7 @@ void nsvgDeleteRasterizer(NSVGrasterizer* r)
 	}
 
 	if (r->edges) free(r->edges);
+	if (r->points) free(r->points);
 	if (r->scanline) free(r->scanline);
 
 	free(r);
@@ -201,6 +220,38 @@ static unsigned char* nsvg__alloc(NSVGrasterizer* r, int size)
 	return buf;
 }
 
+static int nsvg__ptEquals(float x1, float y1, float x2, float y2, float tol)
+{
+	float dx = x2 - x1;
+	float dy = y2 - y1;
+	return dx*dx + dy*dy < tol*tol;
+}
+
+static void nsvg__addPathPoint(NSVGrasterizer* r, float x, float y, int flags)
+{
+	NSVGpoint* pt;
+
+	if (r->npoints > 0) {
+		pt = &r->points[r->npoints-1];
+		if (nsvg__ptEquals(pt->x,pt->y, x,y, r->distTol)) {
+			pt->flags |= flags;
+			return;
+		}
+	}
+
+	if (r->npoints+1 > r->cpoints) {
+		r->cpoints = r->cpoints > 0 ? r->cpoints * 2 : 64;
+		r->points = (NSVGpoint*)realloc(r->points, sizeof(NSVGpoint) * r->cpoints);
+		if (r->points == NULL) return;
+	}
+
+	pt = &r->points[r->npoints];
+	pt->x = x;
+	pt->y = y;
+	pt->flags = flags;
+	r->npoints++;
+}
+
 static void nsvg__addEdge(NSVGrasterizer* r, float x0, float y0, float x1, float y1)
 {
 	NSVGedge* e;
@@ -233,23 +284,28 @@ static void nsvg__addEdge(NSVGrasterizer* r, float x0, float y0, float x1, float
 	}
 }
 
+static float nsvg__normalize(float *x, float* y)
+{
+	float d = sqrtf((*x)*(*x) + (*y)*(*y));
+	if (d > 1e-6f) {
+		float id = 1.0f / d;
+		*x *= id;
+		*y *= id;
+	}
+	return d;
+}
+
 static float nsvg__absf(float x) { return x < 0 ? -x : x; }
 
 static void nsvg__flattenCubicBez(NSVGrasterizer* r, 
 								  float x1, float y1, float x2, float y2,
 								  float x3, float y3, float x4, float y4,
-								  float tol, int level)
+								  int level, int type)
 {
 	float x12,y12,x23,y23,x34,y34,x123,y123,x234,y234,x1234,y1234;
+	float dx,dy,d2,d3;
 	
 	if (level > 10) return;
-
-	if (nsvg__absf(x1+x3-x2-x2) + nsvg__absf(y1+y3-y2-y2) + nsvg__absf(x2+x4-x3-x3) + nsvg__absf(y2+y4-y3-y3) < tol) {
-		nsvg__addEdge(r, r->px, r->py, x4, y4);
-		r->px = x4;
-		r->py = y4;
-		return;
-	}
 
 	x12 = (x1+x2)*0.5f;
 	y12 = (y1+y2)*0.5f;
@@ -259,31 +315,364 @@ static void nsvg__flattenCubicBez(NSVGrasterizer* r,
 	y34 = (y3+y4)*0.5f;
 	x123 = (x12+x23)*0.5f;
 	y123 = (y12+y23)*0.5f;
+
+	dx = x4 - x1;
+	dy = y4 - y1;
+	d2 = nsvg__absf(((x2 - x4) * dy - (y2 - y4) * dx));
+	d3 = nsvg__absf(((x3 - x4) * dy - (y3 - y4) * dx));
+
+	if ((d2 + d3)*(d2 + d3) < r->tessTol * (dx*dx + dy*dy)) {
+		nsvg__addPathPoint(r, x4, y4, type);
+		return;
+	}
+
 	x234 = (x23+x34)*0.5f;
 	y234 = (y23+y34)*0.5f;
 	x1234 = (x123+x234)*0.5f;
 	y1234 = (y123+y234)*0.5f;
 
-	nsvg__flattenCubicBez(r, x1,y1, x12,y12, x123,y123, x1234,y1234, tol, level+1); 
-	nsvg__flattenCubicBez(r, x1234,y1234, x234,y234, x34,y34, x4,y4, tol, level+1); 
+	nsvg__flattenCubicBez(r, x1,y1, x12,y12, x123,y123, x1234,y1234, level+1, 0); 
+	nsvg__flattenCubicBez(r, x1234,y1234, x234,y234, x34,y34, x4,y4, level+1, type); 
 }
 
 static void nsvg__flattenShape(NSVGrasterizer* r, NSVGshape* shape, float scale)
 {
+	int i, j;
 	NSVGpath* path;
-	float tol = 0.25f * 4.0f / scale;
-	int i;
 
 	for (path = shape->paths; path != NULL; path = path->next) {
+		r->npoints = 0;
 		// Flatten path
-		r->px = path->pts[0];
-		r->py = path->pts[1];
+		nsvg__addPathPoint(r, path->pts[0]*scale, path->pts[1]*scale, 0);
 		for (i = 0; i < path->npts-1; i += 3) {
 			float* p = &path->pts[i*2];
-			nsvg__flattenCubicBez(r, p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7], tol, 0);
+			nsvg__flattenCubicBez(r, p[0]*scale,p[1]*scale, p[2]*scale,p[3]*scale, p[4]*scale,p[5]*scale, p[6]*scale,p[7]*scale, 0, 0);
 		}
 		// Close path
-		nsvg__addEdge(r, r->px,r->py, path->pts[0],path->pts[1]);
+		nsvg__addPathPoint(r, path->pts[0]*scale, path->pts[1]*scale, 0);
+		// Build edges
+		for (i = 0, j = r->npoints-1; i < r->npoints; j = i++)
+			nsvg__addEdge(r, r->points[j].x, r->points[j].y, r->points[i].x, r->points[i].y);
+	}
+}
+
+enum NSVGpointFlags
+{
+	NSVG_PT_CORNER = 0x01,
+	NSVG_PT_BEVEL = 0x02,
+};
+
+static void nsvg__initClosed(NSVGpoint* left, NSVGpoint* right, NSVGpoint* p0, NSVGpoint* p1, float lineWidth)
+{
+	float w = lineWidth * 0.5f;
+	float dx = p1->x - p0->x;
+	float dy = p1->y - p0->y;
+	float len = nsvg__normalize(&dx, &dy);
+	float px = p0->x + dx*len*0.5f, py = p0->y + dy*len*0.5f;
+	float dlx = dy, dly = -dx;
+	float lx = px - dlx*w, ly = py - dly*w;
+	float rx = px + dlx*w, ry = py + dly*w;
+	left->x = lx; left->y = ly;
+	right->x = rx; right->y = ry;
+}
+
+static void nsvg__buttCap(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p, float dx, float dy, float lineWidth, int connect)
+{
+	float w = lineWidth * 0.5f;
+	float px = p->x, py = p->y;
+	float dlx = dy, dly = -dx;
+	float lx = px - dlx*w, ly = py - dly*w;
+	float rx = px + dlx*w, ry = py + dly*w;
+
+	nsvg__addEdge(r, lx, ly, rx, ry);
+
+	if (connect) {
+		nsvg__addEdge(r, left->x, left->y, lx, ly);
+		nsvg__addEdge(r, rx, ry, right->x, right->y);
+	}
+	left->x = lx; left->y = ly;
+	right->x = rx; right->y = ry;
+}
+
+static void nsvg__squareCap(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p, float dx, float dy, float lineWidth, int connect)
+{
+	float w = lineWidth * 0.5f;
+	float px = p->x - dx*w, py = p->y - dy*w;
+	float dlx = dy, dly = -dx;
+	float lx = px - dlx*w, ly = py - dly*w;
+	float rx = px + dlx*w, ry = py + dly*w;
+
+	nsvg__addEdge(r, lx, ly, rx, ry);
+
+	if (connect) {
+		nsvg__addEdge(r, left->x, left->y, lx, ly);
+		nsvg__addEdge(r, rx, ry, right->x, right->y);
+	}
+	left->x = lx; left->y = ly;
+	right->x = rx; right->y = ry;
+}
+
+#ifndef NSVG_PI
+#define NSVG_PI (3.14159265358979323846264338327f)
+#endif
+
+static void nsvg__roundCap(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p, float dx, float dy, float lineWidth, int ncap, int connect)
+{
+	int i;
+	float w = lineWidth * 0.5f;
+	float px = p->x, py = p->y;
+	float dlx = dy, dly = -dx;
+	float lx, ly, rx, ry, prevx, prevy;
+
+	for (i = 0; i < ncap; i++) {
+		float a = i/(float)(ncap-1)*NSVG_PI;
+		float ax = cosf(a) * w, ay = sinf(a) * w;
+		float x = px - dlx*ax - dx*ay;
+		float y = py - dly*ax - dy*ay;
+
+		if (i > 0)
+			nsvg__addEdge(r, prevx, prevy, x, y);
+
+		prevx = x;
+		prevy = y;
+
+		if (i == 0) {
+			lx = x; ly = y;
+		} else if (i == ncap-1) {
+			rx = x; ry = y;
+		}
+	}
+
+	if (connect) {
+		nsvg__addEdge(r, left->x, left->y, lx, ly);
+		nsvg__addEdge(r, rx, ry, right->x, right->y);
+	}
+
+	left->x = lx; left->y = ly;
+	right->x = rx; right->y = ry;
+}
+
+static void nsvg__bevelJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p0, NSVGpoint* p1, float lineWidth)
+{
+	float w = lineWidth * 0.5f;
+	float dlx0 = p0->dy, dly0 = -p0->dx;
+	float dlx1 = p1->dy, dly1 = -p1->dx;
+	float lx0 = p1->x - (dlx0 * w), ly0 = p1->y - (dly0 * w);
+	float rx0 = p1->x + (dlx0 * w), ry0 = p1->y + (dly0 * w);
+	float lx1 = p1->x - (dlx1 * w), ly1 = p1->y - (dly1 * w);
+	float rx1 = p1->x + (dlx1 * w), ry1 = p1->y + (dly1 * w);
+
+	nsvg__addEdge(r, lx0, ly0, left->x, left->y);
+	nsvg__addEdge(r, lx1, ly1, lx0, ly0);
+
+	nsvg__addEdge(r, right->x, right->y, rx0, ry0);
+	nsvg__addEdge(r, rx0, ry0, rx1, ry1);
+
+	left->x = lx1; left->y = ly1;
+	right->x = rx1; right->y = ry1;
+}
+
+static void nsvg__roundJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p0, NSVGpoint* p1, float lineWidth, int ncap)
+{
+	int i, n;
+	float w = lineWidth * 0.5f;
+	float dlx0 = p0->dy, dly0 = -p0->dx;
+	float dlx1 = p1->dy, dly1 = -p1->dx;
+	float a0 = atan2f(dly0, dlx0);
+	float a1 = atan2f(dly1, dlx1);
+	float da = a1 - a0;
+	float lx, ly, rx, ry;
+
+	if (da < NSVG_PI) da += NSVG_PI*2;
+	if (da > NSVG_PI) da -= NSVG_PI*2;
+
+	n = (int)ceilf((nsvg__absf(da) / NSVG_PI) * ncap);
+	if (n < 2) n = 2;
+	if (n > ncap) n = ncap;
+
+	lx = left->x;
+	ly = left->y;
+	rx = right->x;
+	ry = right->y;
+
+	for (i = 0; i < n; i++) {
+		float u = i/(float)(n-1);
+		float a = a0 + u*da;
+		float ax = cosf(a) * w, ay = sinf(a) * w;
+		float lx1 = p1->x - ax, ly1 = p1->y - ay;
+		float rx1 = p1->x + ax, ry1 = p1->y + ay;
+
+		nsvg__addEdge(r, lx1, ly1, lx, ly);
+		nsvg__addEdge(r, rx, ry, rx1, ry1);
+
+		lx = lx1; ly = ly1;
+		rx = rx1; ry = ry1;
+	}
+
+	left->x = lx; left->y = ly;
+	right->x = rx; right->y = ry;
+}
+
+static void nsvg__straightJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p1, float lineWidth)
+{
+	float w = lineWidth * 0.5f;
+	float lx = p1->x - (p1->dmx * w), ly = p1->y - (p1->dmy * w);
+	float rx = p1->x + (p1->dmx * w), ry = p1->y + (p1->dmy * w);
+
+	nsvg__addEdge(r, lx, ly, left->x, left->y);
+	nsvg__addEdge(r, right->x, right->y, rx, ry);
+
+	left->x = lx; left->y = ly;
+	right->x = rx; right->y = ry;
+}
+
+static int nsvg__curveDivs(float r, float arc, float tol)
+{
+	float da = acosf(r / (r + tol)) * 2.0f;
+	int divs = (int)ceilf(arc / da);
+	if (divs < 2) divs = 2;
+	return divs;
+}
+
+static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float scale)
+{
+	int i, j, closed;
+	int s, e;
+	NSVGpath* path;
+	NSVGpoint* p0, *p1;
+	float miterLimit = 10;
+	int lineJoin = shape->strokeLineJoin;
+	int lineCap = shape->strokeLineCap;
+	float lineWidth = shape->strokeWidth * scale;
+	int ncap = nsvg__curveDivs(lineWidth*0.5f, NSVG_PI, r->tessTol);	// Calculate divisions per half circle.
+	NSVGpoint left, right, firstLeft, firstRight;
+
+	for (path = shape->paths; path != NULL; path = path->next) {
+		r->npoints = 0;
+		// Flatten path
+		nsvg__addPathPoint(r, path->pts[0]*scale, path->pts[1]*scale, NSVG_PT_CORNER);
+		for (i = 0; i < path->npts-1; i += 3) {
+			float* p = &path->pts[i*2];
+			nsvg__flattenCubicBez(r, p[0]*scale,p[1]*scale, p[2]*scale,p[3]*scale, p[4]*scale,p[5]*scale, p[6]*scale,p[7]*scale, 0, NSVG_PT_CORNER);
+		}
+		if (r->npoints < 2)
+			continue;
+
+		closed = path->closed;
+
+		// If the first and last points are the same, remove the last, mark as closed path.
+		p0 = &r->points[r->npoints-1];
+		p1 = &r->points[0];
+		if (nsvg__ptEquals(p0->x,p0->y, p1->x,p1->y, r->distTol)) {
+			r->npoints--;
+			p0 = &r->points[r->npoints-1];
+			closed = 1;
+		}
+
+		for (i = 0; i < r->npoints; i++) {
+			// Calculate segment direction and length
+			p0->dx = p1->x - p0->x;
+			p0->dy = p1->y - p0->y;
+			p0->len = nsvg__normalize(&p0->dx, &p0->dy);
+			// Advance
+			p0 = p1++;
+		}
+
+		// calculate joins
+		p0 = &r->points[r->npoints-1];
+		p1 = &r->points[0];
+		for (j = 0; j < r->npoints; j++) {
+			float dlx0, dly0, dlx1, dly1, dmr2;
+			dlx0 = p0->dy;
+			dly0 = -p0->dx;
+			dlx1 = p1->dy;
+			dly1 = -p1->dx;
+			// Calculate extrusions
+			p1->dmx = (dlx0 + dlx1) * 0.5f;
+			p1->dmy = (dly0 + dly1) * 0.5f;
+			dmr2 = p1->dmx*p1->dmx + p1->dmy*p1->dmy;
+			if (dmr2 > 0.000001f) {
+				float s = 1.0f / dmr2;
+				if (s > 600.0f) {
+					s = 600.0f;
+				}
+				p1->dmx *= s;
+				p1->dmy *= s;
+			}
+
+			// Clear flags, but keep the corner.
+			p1->flags = (p1->flags & NSVG_PT_CORNER) ? NSVG_PT_CORNER : 0;
+
+			// Check to see if the corner needs to be beveled.
+			if (p1->flags & NSVG_PT_CORNER) {
+				if ((dmr2 * miterLimit*miterLimit) < 1.0f || lineJoin == NSVG_JOIN_BEVEL || lineJoin == NSVG_JOIN_ROUND) {
+					p1->flags |= NSVG_PT_BEVEL;
+				}
+			}
+
+			p0 = p1++;
+		}
+
+		// Build stroke edges
+		if (closed) {
+			// Looping
+			p0 = &r->points[r->npoints-1];
+			p1 = &r->points[0];
+			s = 0;
+			e = r->npoints;
+		} else {
+			// Add cap
+			p0 = &r->points[0];
+			p1 = &r->points[1];
+			s = 1;
+			e = r->npoints-1;
+		}
+
+		if (closed) {
+			nsvg__initClosed(&left, &right, p0, p1, lineWidth);
+			firstLeft = left;
+			firstRight = right;
+		} else {
+			// Add cap
+			float dx = p1->x - p0->x;
+			float dy = p1->y - p0->y;
+			nsvg__normalize(&dx, &dy);
+			if (lineCap == NSVG_CAP_BUTT)
+				nsvg__buttCap(r, &left, &right, p0, dx, dy, lineWidth, 0);
+			else if (lineCap == NSVG_CAP_SQUARE)
+				nsvg__squareCap(r, &left, &right, p0, dx, dy, lineWidth, 0);
+			else if (lineCap == NSVG_CAP_ROUND)
+				nsvg__roundCap(r, &left, &right, p0, dx, dy, lineWidth, ncap, 0);
+		}
+
+		for (j = s; j < e; ++j) {
+			if (p1->flags & NSVG_PT_BEVEL) {
+				if (lineJoin == NSVG_JOIN_ROUND)
+					nsvg__roundJoin(r, &left, &right, p0, p1, lineWidth, ncap);
+				else
+					nsvg__bevelJoin(r, &left, &right, p0, p1, lineWidth);
+			} else {
+				nsvg__straightJoin(r, &left, &right, p1, lineWidth);
+			}
+			p0 = p1++;
+		}
+
+		if (closed) {
+			// Loop it
+			nsvg__addEdge(r, firstLeft.x, firstLeft.y, left.x, left.y);
+			nsvg__addEdge(r, right.x, right.y, firstRight.x, firstRight.y);
+		} else {
+			// Add cap
+			float dx = p1->x - p0->x;
+			float dy = p1->y - p0->y;
+			nsvg__normalize(&dx, &dy);
+			if (lineCap == NSVG_CAP_BUTT)
+				nsvg__buttCap(r, &right, &left, p1, -dx, -dy, lineWidth, 1);
+			else if (lineCap == NSVG_CAP_SQUARE)
+				nsvg__squareCap(r, &right, &left, p1, -dx, -dy, lineWidth, 1);
+			else if (lineCap == NSVG_CAP_ROUND)
+				nsvg__roundCap(r, &right, &left, p1, -dx, -dy, lineWidth, ncap, 1);
+		}
 	}
 }
 
@@ -766,32 +1155,54 @@ void nsvgRasterize(NSVGrasterizer* r,
 		memset(&dst[i*stride], 0, w*4);
 
 	for (shape = image->shapes; shape != NULL; shape = shape->next) {
+		if (shape->fill.type != NSVG_PAINT_NONE) {
+			nsvg__resetPool(r);
+			r->freelist = NULL;
+			r->nedges = 0;
 
-		if (shape->fill.type == NSVG_PAINT_NONE)
-			continue;
+			nsvg__flattenShape(r, shape, scale);
 
-		nsvg__resetPool(r);
-		r->freelist = NULL;
-		r->nedges = 0;
+			// Scale and translate edges
+			for (i = 0; i < r->nedges; i++) {
+				e = &r->edges[i];
+				e->x0 = tx + e->x0;
+				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+				e->x1 = tx + e->x1;
+				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+			}
 
-		nsvg__flattenShape(r, shape, scale);
+			// Rasterize edges
+			qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
 
-		// Scale and translate edges
-		for (i = 0; i < r->nedges; i++) {
-			e = &r->edges[i];
-			e->x0 = tx + e->x0 * scale;
-			e->y0 = (ty + e->y0 * scale) * NSVG__SUBSAMPLES;
-			e->x1 = tx + e->x1 * scale;
-			e->y1 = (ty + e->y1 * scale) * NSVG__SUBSAMPLES;
+			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+			nsvg__initPaint(&cache, &shape->fill, shape->opacity);
+		
+			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache);
 		}
+		if (shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * scale) > 0.01f) {
+			nsvg__resetPool(r);
+			r->freelist = NULL;
+			r->nedges = 0;
 
-		// Rasterize edges
-		qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+			nsvg__flattenShapeStroke(r, shape, scale);
 
-		// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
-		nsvg__initPaint(&cache, &shape->fill, shape->opacity);
-	
-		nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache);
+			// Scale and translate edges
+			for (i = 0; i < r->nedges; i++) {
+				e = &r->edges[i];
+				e->x0 = tx + e->x0;
+				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+				e->x1 = tx + e->x1;
+				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+			}
+
+			// Rasterize edges
+			qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+
+			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+			nsvg__initPaint(&cache, &shape->stroke, shape->opacity);
+		
+			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache);
+		}
 	}
 
 	nsvg__unpremultiplyAlpha(dst, w, h, stride);

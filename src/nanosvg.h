@@ -69,14 +69,30 @@ extern "C" {
 	nsvgDelete(image);
 */
 
-#define NSVG_PAINT_NONE 0
-#define NSVG_PAINT_COLOR 1
-#define NSVG_PAINT_LINEAR_GRADIENT 2
-#define NSVG_PAINT_RADIAL_GRADIENT 3
+enum NSVGpaintType {
+	NSVG_PAINT_NONE = 0,
+	NSVG_PAINT_COLOR = 1,
+	NSVG_PAINT_LINEAR_GRADIENT = 2,
+	NSVG_PAINT_RADIAL_GRADIENT = 3,
+};
 
-#define NSVG_SPREAD_PAD 0
-#define NSVG_SPREAD_REFLECT 1
-#define NSVG_SPREAD_REPEAT 2
+enum NSVGspreadType {
+	NSVG_SPREAD_PAD = 0,
+	NSVG_SPREAD_REFLECT = 1,
+	NSVG_SPREAD_REPEAT = 2,
+};
+
+enum NSVGlineJoin {
+	NSVG_JOIN_MITER = 0,
+	NSVG_JOIN_ROUND = 1,
+	NSVG_JOIN_BEVEL = 2,
+};
+
+enum NSVGlineCap {
+	NSVG_CAP_BUTT = 0,
+	NSVG_CAP_ROUND = 1,
+	NSVG_CAP_SQUARE = 2,
+};
 
 typedef struct NSVGgradientStop {
 	unsigned int color;
@@ -113,7 +129,9 @@ typedef struct NSVGshape
 	NSVGpaint fill;				// Fill paint
 	NSVGpaint stroke;			// Stroke paint
 	float opacity;				// Opacity of the shape.
-	float strokeWidth;			// Stroke width (scaled)
+	float strokeWidth;			// Stroke width (scaled).
+	char strokeLineJoin;		// Stroke join type.
+	char strokeLineCap;			// Stroke cap type.
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
 	NSVGpath* paths;			// Linked list of paths in the image.
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
@@ -351,6 +369,8 @@ typedef struct NSVGattrib
 	char fillGradient[64];
 	char strokeGradient[64];
 	float strokeWidth;
+	char strokeLineJoin;
+	char strokeLineCap;
 	float fontSize;
 	unsigned int stopColor;
 	float stopOpacity;
@@ -554,6 +574,8 @@ static NSVGparser* nsvg__createParser()
 	p->attr[0].strokeOpacity = 1;
 	p->attr[0].stopOpacity = 1;
 	p->attr[0].strokeWidth = 1;
+	p->attr[0].strokeLineJoin = NSVG_JOIN_MITER;
+	p->attr[0].strokeLineCap = NSVG_CAP_BUTT;
 	p->attr[0].hasFill = 1;
 	p->attr[0].hasStroke = 0;
 	p->attr[0].visible = 1;
@@ -761,6 +783,8 @@ static void nsvg__addShape(NSVGparser* p)
 
 	scale = nsvg__maxf(fabsf(attr->xform[0]), fabsf(attr->xform[3]));
 	shape->strokeWidth = attr->strokeWidth * scale;
+	shape->strokeLineJoin = attr->strokeLineJoin;
+	shape->strokeLineCap = attr->strokeLineCap;
 	shape->opacity = attr->opacity;
 
 	shape->paths = p->plist;
@@ -1382,6 +1406,30 @@ static void nsvg__parseUrl(char* id, const char* str)
 	id[i] = '\0';
 }
 
+static char nsvg__parseLineCap(const char* str)
+{
+	if (strcmp(str, "butt") == 0)
+		return NSVG_CAP_BUTT;
+	else if (strcmp(str, "round") == 0)
+		return NSVG_CAP_ROUND;
+	else if (strcmp(str, "square") == 0)
+		return NSVG_CAP_SQUARE;
+	// TODO: handle inherit.
+	return NSVG_CAP_BUTT;
+}
+
+static char nsvg__parseLineJoin(const char* str)
+{
+	if (strcmp(str, "miter") == 0)
+		return NSVG_JOIN_MITER;
+	else if (strcmp(str, "round") == 0)
+		return NSVG_JOIN_ROUND;
+	else if (strcmp(str, "bevel") == 0)
+		return NSVG_JOIN_BEVEL;
+	// TODO: handle inherit.
+	return NSVG_CAP_BUTT;
+}
+
 static void nsvg__parseStyle(NSVGparser* p, const char* str);
 
 static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
@@ -1425,6 +1473,10 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		attr->strokeWidth = nsvg__parseFloat(p, value, 2);
 	} else if (strcmp(name, "stroke-opacity") == 0) {
 		attr->strokeOpacity = nsvg__parseFloat(NULL, value, 2);
+	} else if (strcmp(name, "stroke-linecap") == 0) {
+		attr->strokeLineCap = nsvg__parseLineCap(value);
+	} else if (strcmp(name, "stroke-linejoin") == 0) {
+		attr->strokeLineJoin = nsvg__parseLineJoin(value);
 	} else if (strcmp(name, "font-size") == 0) {
 		attr->fontSize = nsvg__parseFloat(p, value, 2);
 	} else if (strcmp(name, "transform") == 0) {
