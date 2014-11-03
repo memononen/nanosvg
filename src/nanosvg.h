@@ -910,7 +910,7 @@ static const char* nsvg__getNextPathItem(const char* s, char* it)
 	// Skip white spaces and commas
 	while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
 	if (!*s) return s;
-	if (*s == '-' || *s == '+' || nsvg__isdigit(*s)) {
+	if (*s == '-' || *s == '+' || *s == '.' || nsvg__isdigit(*s)) {
 		// sign
 		if (*s == '-' || *s == '+') {
 			if (i < 63) it[i++] = *s;
