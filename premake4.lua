@@ -39,14 +39,13 @@ solution "nanosvg"
 		targetdir("build")
 	 
 		configuration { "linux" }
-			 links { "X11","Xrandr", "rt", "GL", "GLU", "pthread" }
+			 links { "X11","Xrandr", "rt", "pthread" }
 
 		configuration { "windows" }
-			 links { "glu32","opengl32", "gdi32", "winmm", "user32" }
+			 links { "winmm", "user32" }
 
 		configuration { "macosx" }
-			links { "glfw3" }
-			linkoptions { "-framework OpenGL", "-framework Cocoa", "-framework IOKit", "-framework CoreVideo" }
+			linkoptions { "-framework Cocoa", "-framework IOKit" }
 
 		configuration "Debug"
 			defines { "DEBUG" }

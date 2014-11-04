@@ -903,48 +903,57 @@ error:
 	}
 }
 
+static const char* nsvg__parseNumber(const char* s, char* it, const int size)
+{
+	const int last = size-1;
+	int i = 0;
+	
+	// sign
+	if (*s == '-' || *s == '+') {
+		if (i < last) it[i++] = *s;
+		s++;
+	}
+	// integer part
+	while (*s && nsvg__isdigit(*s)) {
+		if (i < last) it[i++] = *s;
+		s++;
+	}
+	if (*s == '.') {
+		// decimal point
+		if (i < last) it[i++] = *s;
+		s++;
+		// fraction part
+		while (*s && nsvg__isdigit(*s)) {
+			if (i < last) it[i++] = *s;
+			s++;
+		}
+	}
+	// exponent
+	if (*s == 'e' || *s == 'E') {
+		if (i < last) it[i++] = *s;
+		s++;
+		if (*s == '-' || *s == '+') {
+			if (i < last) it[i++] = *s;
+			s++;
+		}
+		while (*s && nsvg__isdigit(*s)) {
+			if (i < last) it[i++] = *s;
+			s++;
+		}
+	}
+	it[i] = '\0';
+
+	return s;
+}
+
 static const char* nsvg__getNextPathItem(const char* s, char* it)
 {
-	int i = 0;
 	it[0] = '\0';
 	// Skip white spaces and commas
 	while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
 	if (!*s) return s;
 	if (*s == '-' || *s == '+' || *s == '.' || nsvg__isdigit(*s)) {
-		// sign
-		if (*s == '-' || *s == '+') {
-			if (i < 63) it[i++] = *s;
-			s++;
-		}
-		// integer part
-		while (*s && nsvg__isdigit(*s)) {
-			if (i < 63) it[i++] = *s;
-			s++;
-		}
-		if (*s == '.') {
-			// decimal point
-			if (i < 63) it[i++] = *s;
-			s++;
-			// fraction part
-			while (*s && nsvg__isdigit(*s)) {
-				if (i < 63) it[i++] = *s;
-				s++;
-			}
-		}
-		// exponent
-		if (*s == 'e' || *s == 'E') {
-			if (i < 63) it[i++] = *s;
-			s++;
-			if (*s == '-' || *s == '+') {
-				if (i < 63) it[i++] = *s;
-				s++;
-			}
-			while (*s && nsvg__isdigit(*s)) {
-				if (i < 63) it[i++] = *s;
-				s++;
-			}
-		}
-		it[i] = '\0';
+		s = nsvg__parseNumber(s, it, 64);
 	} else {
 		// Parse command
 		it[0] = *s++;
@@ -1257,6 +1266,7 @@ static int nsvg__parseTransformArgs(const char* str, float* args, int maxNa, int
 {
 	const char* end;
 	const char* ptr;
+	char it[64];
 	
 	*na = 0;
 	ptr = str;
@@ -1269,16 +1279,17 @@ static int nsvg__parseTransformArgs(const char* str, float* args, int maxNa, int
 		return 1;
 	
 	while (ptr < end) {
-		if (nsvg__isnum(*ptr)) {
+		if (*ptr == '-' || *ptr == '+' || *ptr == '.' || nsvg__isdigit(*ptr)) {
 			if (*na >= maxNa) return 0;
-			args[(*na)++] = (float)atof(ptr);
-			while (ptr < end && nsvg__isnum(*ptr)) ++ptr;
+			ptr = nsvg__parseNumber(ptr, it, 64);
+			args[(*na)++] = (float)atof(it);
 		} else {
 			++ptr;
 		}
 	}
 	return (int)(end - str);
 }
+
 
 static int nsvg__parseMatrix(float* xform, const char* str)
 {
