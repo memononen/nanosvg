@@ -360,6 +360,7 @@ enum NSVGpointFlags
 {
 	NSVG_PT_CORNER = 0x01,
 	NSVG_PT_BEVEL = 0x02,
+	NSVG_PT_LEFT = 0x04,
 };
 
 static void nsvg__initClosed(NSVGpoint* left, NSVGpoint* right, NSVGpoint* p0, NSVGpoint* p1, float lineWidth)
@@ -472,6 +473,42 @@ static void nsvg__bevelJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right
 	right->x = rx1; right->y = ry1;
 }
 
+static void nsvg__miterJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p0, NSVGpoint* p1, float lineWidth)
+{
+	float w = lineWidth * 0.5f;
+	float dlx0 = p0->dy, dly0 = -p0->dx;
+	float dlx1 = p1->dy, dly1 = -p1->dx;
+	float lx0, rx0, lx1, rx1;
+	float ly0, ry0, ly1, ry1;
+
+	if (p1->flags & NSVG_PT_LEFT) {
+		lx0 = lx1 = p1->x - p1->dmx * w;
+		ly0 = ly1 = p1->y - p1->dmy * w;
+		nsvg__addEdge(r, lx1, ly1, left->x, left->y);
+
+		rx0 = p1->x + (dlx0 * w);
+		ry0 = p1->y + (dly0 * w);
+		rx1 = p1->x + (dlx1 * w);
+		ry1 = p1->y + (dly1 * w);
+		nsvg__addEdge(r, right->x, right->y, rx0, ry0);
+		nsvg__addEdge(r, rx0, ry0, rx1, ry1);
+	} else {
+		lx0 = p1->x - (dlx0 * w);
+		ly0 = p1->y - (dly0 * w);
+		lx1 = p1->x - (dlx1 * w);
+		ly1 = p1->y - (dly1 * w);
+		nsvg__addEdge(r, lx0, ly0, left->x, left->y);
+		nsvg__addEdge(r, lx1, ly1, lx0, ly0);
+
+		rx0 = rx1 = p1->x + p1->dmx * w;
+		ry0 = ry1 = p1->y + p1->dmy * w;
+		nsvg__addEdge(r, right->x, right->y, rx1, ry1);
+	}
+
+	left->x = lx1; left->y = ly1;
+	right->x = rx1; right->y = ry1;
+}
+
 static void nsvg__roundJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right, NSVGpoint* p0, NSVGpoint* p1, float lineWidth, int ncap)
 {
 	int i, n;
@@ -540,7 +577,7 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 	int s, e;
 	NSVGpath* path;
 	NSVGpoint* p0, *p1;
-	float miterLimit = 10;
+	float miterLimit = 4;
 	int lineJoin = shape->strokeLineJoin;
 	int lineCap = shape->strokeLineCap;
 	float lineWidth = shape->strokeWidth * scale;
@@ -582,7 +619,7 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 		p0 = &r->points[r->npoints-1];
 		p1 = &r->points[0];
 		for (j = 0; j < r->npoints; j++) {
-			float dlx0, dly0, dlx1, dly1, dmr2;
+			float dlx0, dly0, dlx1, dly1, dmr2, cross;
 			dlx0 = p0->dy;
 			dly0 = -p0->dx;
 			dlx1 = p1->dy;
@@ -602,6 +639,11 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 
 			// Clear flags, but keep the corner.
 			p1->flags = (p1->flags & NSVG_PT_CORNER) ? NSVG_PT_CORNER : 0;
+
+			// Keep track of left turns.
+			cross = p1->dx * p0->dy - p0->dx * p1->dy;
+			if (cross > 0.0f)
+				p1->flags |= NSVG_PT_LEFT;
 
 			// Check to see if the corner needs to be beveled.
 			if (p1->flags & NSVG_PT_CORNER) {
@@ -646,11 +688,14 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 		}
 
 		for (j = s; j < e; ++j) {
-			if (p1->flags & NSVG_PT_BEVEL) {
+//			if (p1->flags & NSVG_PT_BEVEL) {
+			if (p1->flags & NSVG_PT_CORNER) {
 				if (lineJoin == NSVG_JOIN_ROUND)
 					nsvg__roundJoin(r, &left, &right, p0, p1, lineWidth, ncap);
-				else
+				else if (lineJoin == NSVG_JOIN_BEVEL || (p1->flags & NSVG_PT_BEVEL))
 					nsvg__bevelJoin(r, &left, &right, p0, p1, lineWidth);
+				else
+					nsvg__miterJoin(r, &left, &right, p0, p1, lineWidth);
 			} else {
 				nsvg__straightJoin(r, &left, &right, p1, lineWidth);
 			}
@@ -1131,6 +1176,48 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 
 }
 
+/*
+static void dumpEdges(NSVGrasterizer* r, const char* name)
+{
+	float xmin = 0, xmax = 0, ymin = 0, ymax = 0;
+	NSVGedge *e = NULL;
+	int i;
+	if (r->nedges == 0) return;
+	FILE* fp = fopen(name, "w");
+	if (fp == NULL) return;
+
+	xmin = xmax = r->edges[0].x0;
+	ymin = ymax = r->edges[0].y0;
+	for (i = 0; i < r->nedges; i++) {
+		e = &r->edges[i];
+		xmin = nsvg__minf(xmin, e->x0);
+		xmin = nsvg__minf(xmin, e->x1);
+		xmax = nsvg__maxf(xmax, e->x0);
+		xmax = nsvg__maxf(xmax, e->x1);
+		ymin = nsvg__minf(ymin, e->y0);
+		ymin = nsvg__minf(ymin, e->y1);
+		ymax = nsvg__maxf(ymax, e->y0);
+		ymax = nsvg__maxf(ymax, e->y1);
+	}
+
+	fprintf(fp, "<svg viewBox=\"%f %f %f %f\" xmlns=\"http://www.w3.org/2000/svg\">", xmin, ymin, (xmax - xmin), (ymax - ymin));
+
+	for (i = 0; i < r->nedges; i++) {
+		e = &r->edges[i];
+		fprintf(fp ,"<line x1=\"%f\" y1=\"%f\" x2=\"%f\" y2=\"%f\" style=\"stroke:#000;\" />", e->x0,e->y0, e->x1,e->y1);
+	}
+
+	for (i = 0; i < r->npoints; i++) {
+		if (i+1 < r->npoints)
+			fprintf(fp ,"<line x1=\"%f\" y1=\"%f\" x2=\"%f\" y2=\"%f\" style=\"stroke:#f00;\" />", r->points[i].x, r->points[i].y, r->points[i+1].x, r->points[i+1].y);
+		fprintf(fp ,"<circle cx=\"%f\" cy=\"%f\" r=\"1\" style=\"fill:%s;\" />", r->points[i].x, r->points[i].y, r->points[i].flags == 0 ? "#f00" : "#0f0");
+	}
+
+	fprintf(fp, "</svg>");
+	fclose(fp);
+}
+*/
+
 void nsvgRasterize(NSVGrasterizer* r,
 				   NSVGimage* image, float tx, float ty, float scale,
 				   unsigned char* dst, int w, int h, int stride)
@@ -1185,6 +1272,8 @@ void nsvgRasterize(NSVGrasterizer* r,
 			r->nedges = 0;
 
 			nsvg__flattenShapeStroke(r, shape, scale);
+
+//			dumpEdges(r, "edge.svg");
 
 			// Scale and translate edges
 			for (i = 0; i < r->nedges; i++) {
