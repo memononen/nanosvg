@@ -1195,7 +1195,7 @@ static unsigned int nsvg__parseColorName(const char* str)
 
 static unsigned int nsvg__parseColor(const char* str)
 {
-	int len = 0;
+	size_t len = 0;
 	while(*str == ' ') ++str;
 	len = strlen(str);
 	if (len >= 1 && *str == '#')
@@ -1800,7 +1800,7 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 	float x1, y1, x2, y2, cx, cy, dx, dy, d;
 	float x1p, y1p, cxp, cyp, s, sa, sb;
 	float ux, uy, vx, vy, a1, da;
-	float x, y, tanx, tany, a, px, py, ptanx, ptany, t[6];
+	float x, y, tanx, tany, a, px = 0, py = 0, ptanx = 0, ptany = 0, t[6];
 	float sinrx, cosrx;
 	int fa, fs;
 	int i, ndivs;
@@ -1914,10 +1914,10 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 static void nsvg__parsePath(NSVGparser* p, const char** attr)
 {
 	const char* s = NULL;
-	char cmd;
+	char cmd = '\0';
 	float args[10];
 	int nargs;
-	int rargs;
+	int rargs = 0;
 	float cpx, cpy, cpx2, cpy2;
 	const char* tmp[4];
 	char closedFlag;
@@ -2593,7 +2593,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 {
 	FILE* fp = NULL;
-	int size;
+	size_t size;
 	char* data = NULL;
 	NSVGimage* image = NULL;
 
