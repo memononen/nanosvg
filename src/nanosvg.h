@@ -126,6 +126,7 @@ typedef struct NSVGpath
 
 typedef struct NSVGshape
 {
+	char id[64];				// Optional 'id' attr of the shape or its group
 	NSVGpaint fill;				// Fill paint
 	NSVGpaint stroke;			// Stroke paint
 	float opacity;				// Opacity of the shape.
@@ -360,6 +361,7 @@ typedef struct NSVGgradientData
 
 typedef struct NSVGattrib
 {
+	char id[64];
 	float xform[6];
 	unsigned int fillColor;
 	unsigned int strokeColor;
@@ -567,6 +569,7 @@ static NSVGparser* nsvg__createParser()
 
 	// Init style
 	nsvg__xformIdentity(p->attr[0].xform);
+	memset(p->attr[0].id, 0, sizeof p->attr[0].id);
 	p->attr[0].fillColor = NSVG_RGB(0,0,0);
 	p->attr[0].strokeColor = NSVG_RGB(0,0,0);
 	p->attr[0].opacity = 1;
@@ -788,6 +791,7 @@ static void nsvg__addShape(NSVGparser* p)
 	if (shape == NULL) goto error;
 	memset(shape, 0, sizeof(NSVGshape));
 
+	memcpy(shape->id, attr->id, sizeof shape->id);
 	scale = nsvg__getAverageScale(attr->xform);
 	shape->strokeWidth = attr->strokeWidth * scale;
 	shape->strokeLineJoin = attr->strokeLineJoin;
@@ -1506,6 +1510,9 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		attr->stopOpacity = nsvg__parseFloat(NULL, value, 2);
 	} else if (strcmp(name, "offset") == 0) {
 		attr->stopOffset = nsvg__parseFloat(NULL, value, 2);
+	} else if (strcmp(name, "id") == 0) {
+		strncpy(attr->id, value, 63);
+		attr->id[63] = '\0';
 	} else {
 		return 0;
 	}
@@ -2276,7 +2283,10 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 
 	// TODO: does not handle percent and objectBoundingBox correctly yet.
 	for (i = 0; attr[i]; i += 2) {
-		if (!nsvg__parseAttr(p, attr[i], attr[i + 1])) {
+		if (strcmp(attr[i], "id") == 0) {
+			strncpy(grad->id, attr[i+1], 63);
+			grad->id[63] = '\0';
+		} else if (!nsvg__parseAttr(p, attr[i], attr[i + 1])) {
 			if (strcmp(attr[i], "gradientUnits") == 0) {
 				if (strcmp(attr[i+1], "objectBoundingBox") == 0)
 					grad->units = NSVG_OBJECT_SPACE;
@@ -2312,9 +2322,6 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 			} else if (strcmp(attr[i], "xlink:href") == 0) {
 				strncpy(grad->ref, attr[i+1], 63);
 				grad->ref[63] = '\0';
-			} else if (strcmp(attr[i], "id") == 0) {
-				strncpy(grad->id, attr[i+1], 63);
-				grad->id[63] = '\0';
 			}
 		}
 	}
