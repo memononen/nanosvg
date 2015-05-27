@@ -727,7 +727,7 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 	// TODO: use ref to fill in all unset values too.
 	ref = data;
 	while (ref != NULL) {
-		if (!stops && ref->stops != NULL) {
+		if (stops == NULL && ref->stops != NULL) {
 			stops = ref->stops;
 			nstops = ref->nstops;
 			break;
