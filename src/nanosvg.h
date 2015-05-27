@@ -606,7 +606,7 @@ static void nsvg__deletePaths(NSVGpath* path)
 
 static void nsvg__deletePaint(NSVGpaint* paint)
 {
-	if (paint->type == NSVG_PAINT_LINEAR_GRADIENT || paint->type == NSVG_PAINT_LINEAR_GRADIENT)
+	if (paint->type == NSVG_PAINT_LINEAR_GRADIENT || paint->type == NSVG_PAINT_RADIAL_GRADIENT)
 		free(paint->gradient);
 }
 
@@ -727,7 +727,7 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 	// TODO: use ref to fill in all unset values too.
 	ref = data;
 	while (ref != NULL) {
-		if (ref->stops != NULL) {
+		if (stops == NULL && ref->stops != NULL) {
 			stops = ref->stops;
 			nstops = ref->nstops;
 			break;
@@ -738,8 +738,6 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 
 	grad = (NSVGgradient*)malloc(sizeof(NSVGgradient) + sizeof(NSVGgradientStop)*(nstops-1));
 	if (grad == NULL) return NULL;
-
-	// TODO: handle data->units == NSVG_OBJECT_SPACE.
 
 	if (data->type == NSVG_PAINT_LINEAR_GRADIENT) {
 		// Calculate transform aligned to the line
@@ -757,8 +755,20 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 		grad->fy = data->radial.fy / data->radial.r;
 	}
 
-	nsvg__xformMultiply(grad->xform, attr->xform);
+	if (data->units == NSVG_OBJECT_SPACE) {
+		float boundingBox[6];
+		dx = bounds[2] - bounds[0];
+		dy = bounds[3] - bounds[1];
+		boundingBox[0] = dx; boundingBox[1] = 0.0f;
+		boundingBox[2] = 0.0f; boundingBox[3] = dy;
+		boundingBox[4] = bounds[0]; boundingBox[5] = bounds[1];
+
+		nsvg__xformMultiply(grad->xform, boundingBox);
+		nsvg__xformMultiply(grad->xform, data->xform);
+		nsvg__xformMultiply(grad->xform, attr->xform);
+	}
 	nsvg__xformMultiply(grad->xform, data->xform);
+	nsvg__xformMultiply(grad->xform, attr->xform);
 
 	grad->spread = data->spread;
 	memcpy(grad->stops, stops, nstops*sizeof(NSVGgradientStop));
@@ -2275,11 +2285,16 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 	NSVGgradientData* grad = (NSVGgradientData*)malloc(sizeof(NSVGgradientData));
 	if (grad == NULL) return;
 	memset(grad, 0, sizeof(NSVGgradientData));
-
+	grad->units = NSVG_OBJECT_SPACE;
 	grad->type = type;
+	if (grad->type == NSVG_PAINT_LINEAR_GRADIENT) {
+		grad->linear.x1 = 0.0f; grad->linear.y1 = 0.0f; grad->linear.x2 = 1.0f; grad->linear.y2 = 0.0f;
+	} else if (grad->type == NSVG_PAINT_RADIAL_GRADIENT) {
+		grad->radial.cx = grad->radial.cy = grad->radial.r = 0.5f;
+	}
+
 	nsvg__xformIdentity(grad->xform);
 
-	// TODO: does not handle percent and objectBoundingBox correctly yet.
 	for (i = 0; attr[i]; i += 2) {
 		if (strcmp(attr[i], "id") == 0) {
 			strncpy(grad->id, attr[i+1], 63);
@@ -2318,8 +2333,9 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 				else if (strcmp(attr[i+1], "repeat") == 0)
 					grad->spread = NSVG_SPREAD_REPEAT;
 			} else if (strcmp(attr[i], "xlink:href") == 0) {
-				strncpy(grad->ref, attr[i+1], 63);
-				grad->ref[63] = '\0';
+				const char *href = attr[i+1];
+				strncpy(grad->ref, href+1, 62);
+				grad->ref[62] = '\0';
 			}
 		}
 	}
@@ -2506,13 +2522,13 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 		if (p->image->width > 0)
 			p->viewWidth = p->image->width;
 		else
-			p->viewWidth = bounds[2];
+			p->viewWidth = bounds[2] - bounds[0]; // patch https://github.com/memononen/nanosvg/issues/29
 	}
 	if (p->viewHeight == 0) {
 		if (p->image->height > 0)
 			p->viewHeight = p->image->height;
 		else
-			p->viewHeight = bounds[3];
+			p->viewHeight = bounds[3] - bounds[1]; // patch https://github.com/memononen/nanosvg/issues/29
 	}
 	if (p->image->width == 0)
 		p->image->width = p->viewWidth;
