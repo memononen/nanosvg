@@ -852,19 +852,19 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 		ca = (cache->colors[0] >> 24) & 0xff;
 
 		for (i = 0; i < count; i++) {
-			int r,g,b;
-			int a = ((int)cover[0] * ca) >> 8;
-			int ia = 255 - a;
+			float r,g,b;
+			float a = ((float)cover[0] * ca) / 255.0f;
+			float ia = 255 - a;
 			// Premultiply
-			r = (cr * a) >> 8;
-			g = (cg * a) >> 8;
-			b = (cb * a) >> 8;
+			r = (cr * a) / 255.0f;
+			g = (cg * a) / 255.0f;
+			b = (cb * a) / 255.0f;
 
 			// Blend over
-			r += ((ia * (int)dst[0]) >> 8);
-			g += ((ia * (int)dst[1]) >> 8);
-			b += ((ia * (int)dst[2]) >> 8);
-			a += ((ia * (int)dst[3]) >> 8);
+			r += ((ia * (float)dst[0]) / 255.0f);
+			g += ((ia * (float)dst[1]) / 255.0f);
+			b += ((ia * (float)dst[2]) / 255.0f);
+			a += ((ia * (float)dst[3]) / 255.0f);
 
 			dst[0] = (unsigned char)r;
 			dst[1] = (unsigned char)g;
@@ -887,7 +887,7 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 		dx = 1.0f / scale;
 
 		for (i = 0; i < count; i++) {
-			int r,g,b,a,ia;
+			float r,g,b,a,ia;
 			gy = fx*t[1] + fy*t[3] + t[5];
 			c = cache->colors[(int)nsvg__clampf(gy*255.0f, 0, 255.0f)];
 			cr = (c) & 0xff;
@@ -895,19 +895,19 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 			cb = (c >> 16) & 0xff;
 			ca = (c >> 24) & 0xff;
 
-			a = ((int)cover[0] * ca) >> 8;
+			a = ((float)cover[0] * ca) / 255.0f;
 			ia = 255 - a;
 
 			// Premultiply
-			r = (cr * a) >> 8;
-			g = (cg * a) >> 8;
-			b = (cb * a) >> 8;
+			r = (cr * a) / 255.0f;
+			g = (cg * a) / 255.0f;
+			b = (cb * a) / 255.0f;
 
 			// Blend over
-			r += ((ia * (int)dst[0]) >> 8);
-			g += ((ia * (int)dst[1]) >> 8);
-			b += ((ia * (int)dst[2]) >> 8);
-			a += ((ia * (int)dst[3]) >> 8);
+			r += ((ia * (float)dst[0]) / 255.0f);
+			g += ((ia * (float)dst[1]) / 255.0f);
+			b += ((ia * (float)dst[2]) / 255.0f);
+			a += ((ia * (float)dst[3]) / 255.0f);
 
 			dst[0] = (unsigned char)r;
 			dst[1] = (unsigned char)g;
@@ -932,7 +932,7 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 		dx = 1.0f / scale;
 
 		for (i = 0; i < count; i++) {
-			int r,g,b,a,ia;
+			float r,g,b,a,ia;
 			gx = fx*t[0] + fy*t[2] + t[4];
 			gy = fx*t[1] + fy*t[3] + t[5];
 			gd = sqrtf(gx*gx + gy*gy);
@@ -942,19 +942,19 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 			cb = (c >> 16) & 0xff;
 			ca = (c >> 24) & 0xff;
 
-			a = ((int)cover[0] * ca) >> 8;
+			a = ((float)cover[0] * ca) / 255.0f;
 			ia = 255 - a;
 
 			// Premultiply
-			r = (cr * a) >> 8;
-			g = (cg * a) >> 8;
-			b = (cb * a) >> 8;
+			r = (cr * a) / 255.0f;
+			g = (cg * a) / 255.0f;
+			b = (cb * a) / 255.0f;
 
 			// Blend over
-			r += ((ia * (int)dst[0]) >> 8);
-			g += ((ia * (int)dst[1]) >> 8);
-			b += ((ia * (int)dst[2]) >> 8);
-			a += ((ia * (int)dst[3]) >> 8);
+			r += ((ia * (float)dst[0]) / 255.0f);
+			g += ((ia * (float)dst[1]) / 255.0f);
+			b += ((ia * (float)dst[2]) / 255.0f);
+			a += ((ia * (float)dst[3]) / 255.0f);
 
 			dst[0] = (unsigned char)r;
 			dst[1] = (unsigned char)g;
