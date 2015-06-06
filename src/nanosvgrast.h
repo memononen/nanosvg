@@ -859,6 +859,11 @@ static unsigned int nsvg__applyOpacity(unsigned int c, float u)
 	return nsvg__RGBA(r,g,b,a);
 }
 
+inline int nsvg__div255(int x)
+{
+    return ((x+1) * 257) >> 16;
+}
+
 static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* cover, int x, int y,
 								float tx, float ty, float scale, NSVGcachedPaint* cache)
 {
@@ -872,18 +877,18 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 
 		for (i = 0; i < count; i++) {
 			int r,g,b;
-			int a = ((int)cover[0] * ca) >> 8;
+			int a = nsvg__div255((int)cover[0] * ca);
 			int ia = 255 - a;
 			// Premultiply
-			r = (cr * a) >> 8;
-			g = (cg * a) >> 8;
-			b = (cb * a) >> 8;
+			r = nsvg__div255(cr * a);
+			g = nsvg__div255(cg * a);
+			b = nsvg__div255(cb * a);
 
 			// Blend over
-			r += ((ia * (int)dst[0]) >> 8);
-			g += ((ia * (int)dst[1]) >> 8);
-			b += ((ia * (int)dst[2]) >> 8);
-			a += ((ia * (int)dst[3]) >> 8);
+			r += nsvg__div255(ia * (int)dst[0]);
+			g += nsvg__div255(ia * (int)dst[1]);
+			b += nsvg__div255(ia * (int)dst[2]);
+			a += nsvg__div255(ia * (int)dst[3]);
 
 			dst[0] = (unsigned char)r;
 			dst[1] = (unsigned char)g;
@@ -914,19 +919,19 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 			cb = (c >> 16) & 0xff;
 			ca = (c >> 24) & 0xff;
 
-			a = ((int)cover[0] * ca) >> 8;
+			a = nsvg__div255((int)cover[0] * ca);
 			ia = 255 - a;
 
 			// Premultiply
-			r = (cr * a) >> 8;
-			g = (cg * a) >> 8;
-			b = (cb * a) >> 8;
+			r = nsvg__div255(cr * a);
+			g = nsvg__div255(cg * a);
+			b = nsvg__div255(cb * a);
 
 			// Blend over
-			r += ((ia * (int)dst[0]) >> 8);
-			g += ((ia * (int)dst[1]) >> 8);
-			b += ((ia * (int)dst[2]) >> 8);
-			a += ((ia * (int)dst[3]) >> 8);
+			r += nsvg__div255(ia * (int)dst[0]);
+			g += nsvg__div255(ia * (int)dst[1]);
+			b += nsvg__div255(ia * (int)dst[2]);
+			a += nsvg__div255(ia * (int)dst[3]);
 
 			dst[0] = (unsigned char)r;
 			dst[1] = (unsigned char)g;
@@ -961,19 +966,19 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 			cb = (c >> 16) & 0xff;
 			ca = (c >> 24) & 0xff;
 
-			a = ((int)cover[0] * ca) >> 8;
+			a = nsvg__div255((int)cover[0] * ca);
 			ia = 255 - a;
 
 			// Premultiply
-			r = (cr * a) >> 8;
-			g = (cg * a) >> 8;
-			b = (cb * a) >> 8;
+			r = nsvg__div255(cr * a);
+			g = nsvg__div255(cg * a);
+			b = nsvg__div255(cb * a);
 
 			// Blend over
-			r += ((ia * (int)dst[0]) >> 8);
-			g += ((ia * (int)dst[1]) >> 8);
-			b += ((ia * (int)dst[2]) >> 8);
-			a += ((ia * (int)dst[3]) >> 8);
+			r += nsvg__div255(ia * (int)dst[0]);
+			g += nsvg__div255(ia * (int)dst[1]);
+			b += nsvg__div255(ia * (int)dst[2]);
+			a += nsvg__div255(ia * (int)dst[3]);
 
 			dst[0] = (unsigned char)r;
 			dst[1] = (unsigned char)g;
