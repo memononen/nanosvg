@@ -40,8 +40,8 @@ int main()
 		printf("Could not open SVG image.\n");
 		goto error;
 	}
-	w = image->width;
-	h = image->height;
+	w = (int)image->width;
+	h = (int)image->height;
 
 	rast = nsvgCreateRasterizer();
 	if (rast == NULL) {
