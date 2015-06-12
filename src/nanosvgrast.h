@@ -859,7 +859,7 @@ static unsigned int nsvg__applyOpacity(unsigned int c, float u)
 	return nsvg__RGBA(r,g,b,a);
 }
 
-inline int nsvg__div255(int x)
+static inline int nsvg__div255(int x)
 {
     return ((x+1) * 257) >> 16;
 }
