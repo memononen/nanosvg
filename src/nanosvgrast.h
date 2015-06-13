@@ -248,7 +248,7 @@ static void nsvg__addPathPoint(NSVGrasterizer* r, float x, float y, int flags)
 	pt = &r->points[r->npoints];
 	pt->x = x;
 	pt->y = y;
-	pt->flags = flags;
+	pt->flags = (unsigned char)flags;
 	r->npoints++;
 }
 
@@ -423,7 +423,7 @@ static void nsvg__roundCap(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right,
 	float w = lineWidth * 0.5f;
 	float px = p->x, py = p->y;
 	float dlx = dy, dly = -dx;
-	float lx, ly, rx, ry, prevx, prevy;
+	float lx = 0, ly = 0, rx = 0, ry = 0, prevx = 0, prevy = 0;
 
 	for (i = 0; i < ncap; i++) {
 		float a = i/(float)(ncap-1)*NSVG_PI;
@@ -582,7 +582,7 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 	int lineCap = shape->strokeLineCap;
 	float lineWidth = shape->strokeWidth * scale;
 	int ncap = nsvg__curveDivs(lineWidth*0.5f, NSVG_PI, r->tessTol);	// Calculate divisions per half circle.
-	NSVGpoint left, right, firstLeft, firstRight;
+	NSVGpoint left = {0,0,0,0,0,0,0,0}, right = {0,0,0,0,0,0,0,0}, firstLeft = {0,0,0,0,0,0,0,0}, firstRight = {0,0,0,0,0,0,0,0};
 
 	for (path = shape->paths; path != NULL; path = path->next) {
 		r->npoints = 0;
@@ -629,12 +629,12 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 			p1->dmy = (dly0 + dly1) * 0.5f;
 			dmr2 = p1->dmx*p1->dmx + p1->dmy*p1->dmy;
 			if (dmr2 > 0.000001f) {
-				float s = 1.0f / dmr2;
-				if (s > 600.0f) {
-					s = 600.0f;
+				float s2 = 1.0f / dmr2;
+				if (s2 > 600.0f) {
+					s2 = 600.0f;
 				}
-				p1->dmx *= s;
-				p1->dmy *= s;
+				p1->dmx *= s2;
+				p1->dmy *= s2;
 			}
 
 			// Clear flags, but keep the corner.
@@ -750,10 +750,10 @@ static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float sta
 //	STBTT_assert(e->y0 <= start_point);
 	// round dx down to avoid going too far
 	if (dxdy < 0)
-		z->dx = -floorf(NSVG__FIX * -dxdy);
+		z->dx = (int)(-floorf(NSVG__FIX * -dxdy));
 	else
-		z->dx = floorf(NSVG__FIX * dxdy);
-	z->x = floorf(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
+		z->dx = (int)floorf(NSVG__FIX * dxdy);
+	z->x = (int)floorf(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
 //	z->x -= off_x * FIX;
 	z->ey = e->y1;
 	z->next = 0;
@@ -841,22 +841,22 @@ static unsigned int nsvg__RGBA(unsigned char r, unsigned char g, unsigned char b
 
 static unsigned int nsvg__lerpRGBA(unsigned int c0, unsigned int c1, float u)
 {
-	int iu = (float)(nsvg__clampf(u, 0.0f, 1.0f) * 256.0f);
+	int iu = (int)(nsvg__clampf(u, 0.0f, 1.0f) * 256.0f);
 	int r = (((c0) & 0xff)*(256-iu) + (((c1) & 0xff)*iu)) >> 8;
 	int g = (((c0>>8) & 0xff)*(256-iu) + (((c1>>8) & 0xff)*iu)) >> 8;
 	int b = (((c0>>16) & 0xff)*(256-iu) + (((c1>>16) & 0xff)*iu)) >> 8;
 	int a = (((c0>>24) & 0xff)*(256-iu) + (((c1>>24) & 0xff)*iu)) >> 8;
-	return nsvg__RGBA(r,g,b,a);
+	return nsvg__RGBA((unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a);
 }
 
 static unsigned int nsvg__applyOpacity(unsigned int c, float u)
 {
-	int iu = (float)(nsvg__clampf(u, 0.0f, 1.0f) * 256.0f);
+	int iu = (int)(nsvg__clampf(u, 0.0f, 1.0f) * 256.0f);
 	int r = (c) & 0xff;
 	int g = (c>>8) & 0xff;
 	int b = (c>>16) & 0xff;
 	int a = (((c>>24) & 0xff)*iu) >> 8;
-	return nsvg__RGBA(r,g,b,a);
+	return nsvg__RGBA((unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a);
 }
 
 static inline int nsvg__div255(int x)
@@ -1090,9 +1090,9 @@ static void nsvg__unpremultiplyAlpha(unsigned char* image, int w, int h, int str
 		for (x = 0; x < w; x++) {
 			int r = row[0], g = row[1], b = row[2], a = row[3];
 			if (a != 0) {
-				row[0] = (int)(r*255/a);
-				row[1] = (int)(g*255/a);
-				row[2] = (int)(b*255/a);
+				row[0] = (unsigned char)(r*255/a);
+				row[1] = (unsigned char)(g*255/a);
+				row[2] = (unsigned char)(b*255/a);
 			}
 			row += 4;
 		}
@@ -1129,9 +1129,9 @@ static void nsvg__unpremultiplyAlpha(unsigned char* image, int w, int h, int str
 					n++;
 				}
 				if (n > 0) {
-					row[0] = r/n;
-					row[1] = g/n;
-					row[2] = b/n;
+					row[0] = (unsigned char)(r/n);
+					row[1] = (unsigned char)(g/n);
+					row[2] = (unsigned char)(b/n);
 				}
 			}
 			row += 4;
@@ -1164,15 +1164,15 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 		for (i = 0; i < 256; i++)
 			cache->colors[i] = nsvg__applyOpacity(grad->stops[i].color, opacity);
 	} else {
-		unsigned int ca, cb;
+		unsigned int ca, cb = 0;
 		float ua, ub, du, u;
 		int ia, ib, count;
 
 		ca = nsvg__applyOpacity(grad->stops[0].color, opacity);
 		ua = nsvg__clampf(grad->stops[0].offset, 0, 1);
 		ub = nsvg__clampf(grad->stops[grad->nstops-1].offset, ua, 1);
-		ia = ua * 255.0f;
-		ib = ub * 255.0f;
+		ia = (int)(ua * 255.0f);
+		ib = (int)(ub * 255.0f);
 		for (i = 0; i < ia; i++) {
 			cache->colors[i] = ca;
 		}
@@ -1182,8 +1182,8 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 			cb = nsvg__applyOpacity(grad->stops[i+1].color, opacity);
 			ua = nsvg__clampf(grad->stops[i].offset, 0, 1);
 			ub = nsvg__clampf(grad->stops[i+1].offset, 0, 1);
-			ia = ua * 255.0f;
-			ib = ub * 255.0f;
+			ia = (int)(ua * 255.0f);
+			ib = (int)(ub * 255.0f);
 			count = ib - ia;
 			if (count <= 0) continue;
 			u = 0;
