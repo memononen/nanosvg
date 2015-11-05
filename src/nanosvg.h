@@ -99,6 +99,10 @@ enum NSVGfillRule {
 	NSVG_FILLRULE_EVENODD = 1,
 };
 
+enum NSVGflags {
+	NSVG_FLAGS_VISIBLE = 0x01
+};
+
 typedef struct NSVGgradientStop {
 	unsigned int color;
 	float offset;
@@ -138,7 +142,8 @@ typedef struct NSVGshape
 	float strokeWidth;			// Stroke width (scaled).
 	char strokeLineJoin;		// Stroke join type.
 	char strokeLineCap;			// Stroke cap type.
-	char fillRule;				// Fille rule, see NSVGfillRule.
+	char fillRule;				// Fill rule, see NSVGfillRule.
+	unsigned char flags;		// Logical or of NSVG_FLAGS_* flags
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
 	NSVGpath* paths;			// Linked list of paths in the image.
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
@@ -155,6 +160,7 @@ typedef struct NSVGimage
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi);
 
 // Parses SVG file from a null terminated string, returns SVG image as paths.
+// Important note: changes the string.
 NSVGimage* nsvgParse(char* input, const char* units, float dpi);
 
 // Deletes list of paths.
@@ -858,6 +864,9 @@ static void nsvg__addShape(NSVGparser* p)
 			shape->stroke.type = NSVG_PAINT_NONE;
 	}
 
+	// Set flags
+	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
+
 	// Add to tail
 	prev = NULL;
 	cur = p->image->shapes;
@@ -1493,8 +1502,8 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 	} else if (strcmp(name, "display") == 0) {
 		if (strcmp(value, "none") == 0)
 			attr->visible = 0;
-		else
-			attr->visible = 1;
+		// Don't reset ->visible on display:inline, one display:none hides the whole subtree
+
 	} else if (strcmp(name, "fill") == 0) {
 		if (strcmp(value, "none") == 0) {
 			attr->hasFill = 0;
