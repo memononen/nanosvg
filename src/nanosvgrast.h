@@ -128,6 +128,10 @@ struct NSVGrasterizer
 	int npoints;
 	int cpoints;
 
+	NSVGpoint* points2;
+	int npoints2;
+	int cpoints2;
+
 	NSVGactiveEdge* freelist;
 	NSVGmemPage* pages;
 	NSVGmemPage* curpage;
@@ -170,6 +174,7 @@ void nsvgDeleteRasterizer(NSVGrasterizer* r)
 
 	if (r->edges) free(r->edges);
 	if (r->points) free(r->points);
+	if (r->points2) free(r->points2);
 	if (r->scanline) free(r->scanline);
 
 	free(r);
@@ -250,6 +255,29 @@ static void nsvg__addPathPoint(NSVGrasterizer* r, float x, float y, int flags)
 	pt->y = y;
 	pt->flags = (unsigned char)flags;
 	r->npoints++;
+}
+
+static void nsvg__appendPathPoint(NSVGrasterizer* r, NSVGpoint pt)
+{
+	if (r->npoints+1 > r->cpoints) {
+		r->cpoints = r->cpoints > 0 ? r->cpoints * 2 : 64;
+		r->points = (NSVGpoint*)realloc(r->points, sizeof(NSVGpoint) * r->cpoints);
+		if (r->points == NULL) return;
+	}
+	r->points[r->npoints] = pt;
+	r->npoints++;
+}
+
+static void nsvg__duplicatePoints(NSVGrasterizer* r)
+{
+	if (r->npoints > r->cpoints2) {
+		r->cpoints2 = r->npoints;
+		r->points2 = (NSVGpoint*)realloc(r->points2, sizeof(NSVGpoint) * r->cpoints2);
+		if (r->points2 == NULL) return;
+	}
+
+	memcpy(r->points2, r->points, sizeof(NSVGpoint) * r->npoints);
+	r->npoints2 = r->npoints;
 }
 
 static void nsvg__addEdge(NSVGrasterizer* r, float x0, float y0, float x1, float y1)
@@ -571,22 +599,147 @@ static int nsvg__curveDivs(float r, float arc, float tol)
 	return divs;
 }
 
+static void nsvg__expandStroke(NSVGrasterizer* r, NSVGpoint* points, int npoints, int closed, int lineJoin, int lineCap, float lineWidth)
+{
+	int ncap = nsvg__curveDivs(lineWidth*0.5f, NSVG_PI, r->tessTol);	// Calculate divisions per half circle.
+	NSVGpoint left = {0,0,0,0,0,0,0,0}, right = {0,0,0,0,0,0,0,0}, firstLeft = {0,0,0,0,0,0,0,0}, firstRight = {0,0,0,0,0,0,0,0};
+	NSVGpoint* p0, *p1;
+	int j, s, e;
+
+	// Build stroke edges
+	if (closed) {
+		// Looping
+		p0 = &points[npoints-1];
+		p1 = &points[0];
+		s = 0;
+		e = npoints;
+	} else {
+		// Add cap
+		p0 = &points[0];
+		p1 = &points[1];
+		s = 1;
+		e = npoints-1;
+	}
+
+	if (closed) {
+		nsvg__initClosed(&left, &right, p0, p1, lineWidth);
+		firstLeft = left;
+		firstRight = right;
+	} else {
+		// Add cap
+		float dx = p1->x - p0->x;
+		float dy = p1->y - p0->y;
+		nsvg__normalize(&dx, &dy);
+		if (lineCap == NSVG_CAP_BUTT)
+			nsvg__buttCap(r, &left, &right, p0, dx, dy, lineWidth, 0);
+		else if (lineCap == NSVG_CAP_SQUARE)
+			nsvg__squareCap(r, &left, &right, p0, dx, dy, lineWidth, 0);
+		else if (lineCap == NSVG_CAP_ROUND)
+			nsvg__roundCap(r, &left, &right, p0, dx, dy, lineWidth, ncap, 0);
+	}
+
+	for (j = s; j < e; ++j) {
+		if (p1->flags & NSVG_PT_CORNER) {
+			if (lineJoin == NSVG_JOIN_ROUND)
+				nsvg__roundJoin(r, &left, &right, p0, p1, lineWidth, ncap);
+			else if (lineJoin == NSVG_JOIN_BEVEL || (p1->flags & NSVG_PT_BEVEL))
+				nsvg__bevelJoin(r, &left, &right, p0, p1, lineWidth);
+			else
+				nsvg__miterJoin(r, &left, &right, p0, p1, lineWidth);
+		} else {
+			nsvg__straightJoin(r, &left, &right, p1, lineWidth);
+		}
+		p0 = p1++;
+	}
+
+	if (closed) {
+		// Loop it
+		nsvg__addEdge(r, firstLeft.x, firstLeft.y, left.x, left.y);
+		nsvg__addEdge(r, right.x, right.y, firstRight.x, firstRight.y);
+	} else {
+		// Add cap
+		float dx = p1->x - p0->x;
+		float dy = p1->y - p0->y;
+		nsvg__normalize(&dx, &dy);
+		if (lineCap == NSVG_CAP_BUTT)
+			nsvg__buttCap(r, &right, &left, p1, -dx, -dy, lineWidth, 1);
+		else if (lineCap == NSVG_CAP_SQUARE)
+			nsvg__squareCap(r, &right, &left, p1, -dx, -dy, lineWidth, 1);
+		else if (lineCap == NSVG_CAP_ROUND)
+			nsvg__roundCap(r, &right, &left, p1, -dx, -dy, lineWidth, ncap, 1);
+	}
+}
+
+static void nsvg__prepareStroke(NSVGrasterizer* r, float miterLimit, int lineJoin)
+{
+	int i, j;
+	NSVGpoint* p0, *p1;
+
+	p0 = &r->points[r->npoints-1];
+	p1 = &r->points[0];
+	for (i = 0; i < r->npoints; i++) {
+		// Calculate segment direction and length
+		p0->dx = p1->x - p0->x;
+		p0->dy = p1->y - p0->y;
+		p0->len = nsvg__normalize(&p0->dx, &p0->dy);
+		// Advance
+		p0 = p1++;
+	}
+
+	// calculate joins
+	p0 = &r->points[r->npoints-1];
+	p1 = &r->points[0];
+	for (j = 0; j < r->npoints; j++) {
+		float dlx0, dly0, dlx1, dly1, dmr2, cross;
+		dlx0 = p0->dy;
+		dly0 = -p0->dx;
+		dlx1 = p1->dy;
+		dly1 = -p1->dx;
+		// Calculate extrusions
+		p1->dmx = (dlx0 + dlx1) * 0.5f;
+		p1->dmy = (dly0 + dly1) * 0.5f;
+		dmr2 = p1->dmx*p1->dmx + p1->dmy*p1->dmy;
+		if (dmr2 > 0.000001f) {
+			float s2 = 1.0f / dmr2;
+			if (s2 > 600.0f) {
+				s2 = 600.0f;
+			}
+			p1->dmx *= s2;
+			p1->dmy *= s2;
+		}
+
+		// Clear flags, but keep the corner.
+		p1->flags = (p1->flags & NSVG_PT_CORNER) ? NSVG_PT_CORNER : 0;
+
+		// Keep track of left turns.
+		cross = p1->dx * p0->dy - p0->dx * p1->dy;
+		if (cross > 0.0f)
+			p1->flags |= NSVG_PT_LEFT;
+
+		// Check to see if the corner needs to be beveled.
+		if (p1->flags & NSVG_PT_CORNER) {
+			if ((dmr2 * miterLimit*miterLimit) < 1.0f || lineJoin == NSVG_JOIN_BEVEL || lineJoin == NSVG_JOIN_ROUND) {
+				p1->flags |= NSVG_PT_BEVEL;
+			}
+		}
+
+		p0 = p1++;
+	}
+}
+
 static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float scale)
 {
 	int i, j, closed;
-	int s, e;
 	NSVGpath* path;
 	NSVGpoint* p0, *p1;
 	float miterLimit = 4;
 	int lineJoin = shape->strokeLineJoin;
 	int lineCap = shape->strokeLineCap;
 	float lineWidth = shape->strokeWidth * scale;
-	int ncap = nsvg__curveDivs(lineWidth*0.5f, NSVG_PI, r->tessTol);	// Calculate divisions per half circle.
-	NSVGpoint left = {0,0,0,0,0,0,0,0}, right = {0,0,0,0,0,0,0,0}, firstLeft = {0,0,0,0,0,0,0,0}, firstRight = {0,0,0,0,0,0,0,0};
 
 	for (path = shape->paths; path != NULL; path = path->next) {
-		r->npoints = 0;
 		// Flatten path
+		r->npoints = 0;
 		nsvg__addPathPoint(r, path->pts[0]*scale, path->pts[1]*scale, NSVG_PT_CORNER);
 		for (i = 0; i < path->npts-1; i += 3) {
 			float* p = &path->pts[i*2];
@@ -606,117 +759,79 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 			closed = 1;
 		}
 
-		for (i = 0; i < r->npoints; i++) {
-			// Calculate segment direction and length
-			p0->dx = p1->x - p0->x;
-			p0->dy = p1->y - p0->y;
-			p0->len = nsvg__normalize(&p0->dx, &p0->dy);
-			// Advance
-			p0 = p1++;
-		}
+		if (shape->strokeDashCount > 0) {
+			int idash = 0, dashState = 1;
+			float totalDist = 0, dashLen, allDashLen, dashOffset;
+			NSVGpoint cur;
 
-		// calculate joins
-		p0 = &r->points[r->npoints-1];
-		p1 = &r->points[0];
-		for (j = 0; j < r->npoints; j++) {
-			float dlx0, dly0, dlx1, dly1, dmr2, cross;
-			dlx0 = p0->dy;
-			dly0 = -p0->dx;
-			dlx1 = p1->dy;
-			dly1 = -p1->dx;
-			// Calculate extrusions
-			p1->dmx = (dlx0 + dlx1) * 0.5f;
-			p1->dmy = (dly0 + dly1) * 0.5f;
-			dmr2 = p1->dmx*p1->dmx + p1->dmy*p1->dmy;
-			if (dmr2 > 0.000001f) {
-				float s2 = 1.0f / dmr2;
-				if (s2 > 600.0f) {
-					s2 = 600.0f;
+			if (closed)
+				nsvg__appendPathPoint(r, r->points[0]);
+
+			// Duplicate points -> points2.
+			nsvg__duplicatePoints(r);
+
+			r->npoints = 0;
+ 			cur = r->points2[0];
+			nsvg__appendPathPoint(r, cur);
+
+			// Figure out dash offset.
+			allDashLen = 0;
+			for (j = 0; j < shape->strokeDashCount; j++)
+				allDashLen += shape->strokeDashArray[j];
+			if (shape->strokeDashCount & 1)
+				allDashLen *= 2.0f;
+			// Find location inside pattern
+			dashOffset = fmodf(shape->strokeDashOffset, allDashLen);
+			if (dashOffset < 0.0f)
+				dashOffset += allDashLen;
+
+			while (dashOffset > shape->strokeDashArray[idash]) {
+				dashOffset -= shape->strokeDashArray[idash];
+				idash = (idash + 1) % shape->strokeDashCount;
+			}
+			dashLen = (shape->strokeDashArray[idash] - dashOffset) * scale;
+
+			for (j = 1; j < r->npoints2; ) {
+				float dx = r->points2[j].x - cur.x;
+				float dy = r->points2[j].y - cur.y;
+				float dist = sqrtf(dx*dx + dy*dy);
+
+				if ((totalDist + dist) > dashLen) {
+					// Calculate intermediate point
+					float d = (dashLen - totalDist) / dist;
+					float x = cur.x + dx * d;
+					float y = cur.y + dy * d;
+					nsvg__addPathPoint(r, x, y, NSVG_PT_CORNER);
+
+					// Stroke
+					if (r->npoints > 1 && dashState) {
+						nsvg__prepareStroke(r, miterLimit, lineJoin);
+						nsvg__expandStroke(r, r->points, r->npoints, 0, lineJoin, lineCap, lineWidth);
+					}
+					// Advance dash pattern
+					dashState = !dashState;
+					idash = (idash+1) % shape->strokeDashCount;
+					dashLen = shape->strokeDashArray[idash] * scale;
+					// Restart
+					cur.x = x;
+					cur.y = y;
+					cur.flags = NSVG_PT_CORNER;
+					totalDist = 0.0f;
+					r->npoints = 0;
+					nsvg__appendPathPoint(r, cur);
+				} else {
+					totalDist += dist;
+					cur = r->points2[j];
+					nsvg__appendPathPoint(r, cur);
+					j++;
 				}
-				p1->dmx *= s2;
-				p1->dmy *= s2;
 			}
-
-			// Clear flags, but keep the corner.
-			p1->flags = (p1->flags & NSVG_PT_CORNER) ? NSVG_PT_CORNER : 0;
-
-			// Keep track of left turns.
-			cross = p1->dx * p0->dy - p0->dx * p1->dy;
-			if (cross > 0.0f)
-				p1->flags |= NSVG_PT_LEFT;
-
-			// Check to see if the corner needs to be beveled.
-			if (p1->flags & NSVG_PT_CORNER) {
-				if ((dmr2 * miterLimit*miterLimit) < 1.0f || lineJoin == NSVG_JOIN_BEVEL || lineJoin == NSVG_JOIN_ROUND) {
-					p1->flags |= NSVG_PT_BEVEL;
-				}
-			}
-
-			p0 = p1++;
-		}
-
-		// Build stroke edges
-		if (closed) {
-			// Looping
-			p0 = &r->points[r->npoints-1];
-			p1 = &r->points[0];
-			s = 0;
-			e = r->npoints;
+			// Stroke any leftover path
+			if (r->npoints > 1 && dashState)
+				nsvg__expandStroke(r, r->points, r->npoints, 0, lineJoin, lineCap, lineWidth);
 		} else {
-			// Add cap
-			p0 = &r->points[0];
-			p1 = &r->points[1];
-			s = 1;
-			e = r->npoints-1;
-		}
-
-		if (closed) {
-			nsvg__initClosed(&left, &right, p0, p1, lineWidth);
-			firstLeft = left;
-			firstRight = right;
-		} else {
-			// Add cap
-			float dx = p1->x - p0->x;
-			float dy = p1->y - p0->y;
-			nsvg__normalize(&dx, &dy);
-			if (lineCap == NSVG_CAP_BUTT)
-				nsvg__buttCap(r, &left, &right, p0, dx, dy, lineWidth, 0);
-			else if (lineCap == NSVG_CAP_SQUARE)
-				nsvg__squareCap(r, &left, &right, p0, dx, dy, lineWidth, 0);
-			else if (lineCap == NSVG_CAP_ROUND)
-				nsvg__roundCap(r, &left, &right, p0, dx, dy, lineWidth, ncap, 0);
-		}
-
-		for (j = s; j < e; ++j) {
-//			if (p1->flags & NSVG_PT_BEVEL) {
-			if (p1->flags & NSVG_PT_CORNER) {
-				if (lineJoin == NSVG_JOIN_ROUND)
-					nsvg__roundJoin(r, &left, &right, p0, p1, lineWidth, ncap);
-				else if (lineJoin == NSVG_JOIN_BEVEL || (p1->flags & NSVG_PT_BEVEL))
-					nsvg__bevelJoin(r, &left, &right, p0, p1, lineWidth);
-				else
-					nsvg__miterJoin(r, &left, &right, p0, p1, lineWidth);
-			} else {
-				nsvg__straightJoin(r, &left, &right, p1, lineWidth);
-			}
-			p0 = p1++;
-		}
-
-		if (closed) {
-			// Loop it
-			nsvg__addEdge(r, firstLeft.x, firstLeft.y, left.x, left.y);
-			nsvg__addEdge(r, right.x, right.y, firstRight.x, firstRight.y);
-		} else {
-			// Add cap
-			float dx = p1->x - p0->x;
-			float dy = p1->y - p0->y;
-			nsvg__normalize(&dx, &dy);
-			if (lineCap == NSVG_CAP_BUTT)
-				nsvg__buttCap(r, &right, &left, p1, -dx, -dy, lineWidth, 1);
-			else if (lineCap == NSVG_CAP_SQUARE)
-				nsvg__squareCap(r, &right, &left, p1, -dx, -dy, lineWidth, 1);
-			else if (lineCap == NSVG_CAP_ROUND)
-				nsvg__roundCap(r, &right, &left, p1, -dx, -dy, lineWidth, ncap, 1);
+			nsvg__prepareStroke(r, miterLimit, lineJoin);
+			nsvg__expandStroke(r, r->points, r->npoints, closed, lineJoin, lineCap, lineWidth);
 		}
 	}
 }

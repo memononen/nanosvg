@@ -140,6 +140,9 @@ typedef struct NSVGshape
 	NSVGpaint stroke;			// Stroke paint
 	float opacity;				// Opacity of the shape.
 	float strokeWidth;			// Stroke width (scaled).
+	float strokeDashOffset;		// Stroke dash offset (scaled).
+	float strokeDashArray[8];			// Stroke dash array (scaled).
+	char strokeDashCount;				// Number of dash values in dash array.
 	char strokeLineJoin;		// Stroke join type.
 	char strokeLineCap;			// Stroke cap type.
 	char fillRule;				// Fill rule, see NSVGfillRule.
@@ -348,6 +351,8 @@ enum NSVGgradientUnits {
 	NSVG_OBJECT_SPACE = 1,
 };
 
+#define NSVG_MAX_DASHES 8
+
 enum NSVGunits {
 	NSVG_UNITS_USER,
 	NSVG_UNITS_PX,
@@ -403,6 +408,9 @@ typedef struct NSVGattrib
 	char fillGradient[64];
 	char strokeGradient[64];
 	float strokeWidth;
+	float strokeDashOffset;
+	float strokeDashArray[NSVG_MAX_DASHES];
+	int strokeDashCount;
 	char strokeLineJoin;
 	char strokeLineCap;
 	char fillRule;
@@ -614,7 +622,6 @@ static NSVGparser* nsvg__createParser()
 	p->attr[0].strokeLineCap = NSVG_CAP_BUTT;
 	p->attr[0].fillRule = NSVG_FILLRULE_NONZERO;
 	p->attr[0].hasFill = 1;
-	p->attr[0].hasStroke = 0;
 	p->attr[0].visible = 1;
 
 	return p;
@@ -913,6 +920,7 @@ static void nsvg__addShape(NSVGparser* p)
 	float scale = 1.0f;
 	NSVGshape *shape, *cur, *prev;
 	NSVGpath* path;
+	int i;
 
 	if (p->plist == NULL)
 		return;
@@ -924,6 +932,10 @@ static void nsvg__addShape(NSVGparser* p)
 	memcpy(shape->id, attr->id, sizeof shape->id);
 	scale = nsvg__getAverageScale(attr->xform);
 	shape->strokeWidth = attr->strokeWidth * scale;
+	shape->strokeDashOffset = attr->strokeDashOffset * scale;
+	shape->strokeDashCount = attr->strokeDashCount;
+	for (i = 0; i < attr->strokeDashCount; i++)
+		shape->strokeDashArray[i] = attr->strokeDashArray[i] * scale;
 	shape->strokeLineJoin = attr->strokeLineJoin;
 	shape->strokeLineCap = attr->strokeLineCap;
 	shape->fillRule = attr->fillRule;
@@ -1574,6 +1586,48 @@ static char nsvg__parseFillRule(const char* str)
 	return NSVG_FILLRULE_NONZERO;
 }
 
+static const char* nsvg__getNextDashItem(const char* s, char* it)
+{
+	int n = 0;
+	it[0] = '\0';
+	// Skip white spaces and commas
+	while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
+	// Advance until whitespace, comma or end.
+	while (*s && (!nsvg__isspace(*s) && *s != ',')) {
+		if (n < 63)
+			it[n++] = *s;
+		s++;
+	}
+	it[n++] = '\0';
+	return s;
+}
+
+static int nsvg__parseStrokeDashArray(NSVGparser* p, const char* str, float* strokeDashArray)
+{
+	char item[64];
+	int count = 0, i;
+	float sum = 0.0f;
+
+	// Handle "none"
+	if (str[0] == 'n')
+		return 0;
+
+	// Parse dashes
+	while (*str) {
+		str = nsvg__getNextDashItem(str, item);
+		if (!*item) break;
+		if (count < NSVG_MAX_DASHES)
+			strokeDashArray[count++] = fabsf(nsvg__parseCoordinate(p, item, 0.0f, nsvg__actualLength(p)));
+	}
+
+	for (i = 0; i < count; i++)
+		sum += strokeDashArray[i];
+	if (sum <= 1e-6f)
+		count = 0;
+
+	return count;
+}
+
 static void nsvg__parseStyle(NSVGparser* p, const char* str);
 
 static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
@@ -1615,6 +1669,10 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		}
 	} else if (strcmp(name, "stroke-width") == 0) {
 		attr->strokeWidth = nsvg__parseCoordinate(p, value, 0.0f, nsvg__actualLength(p));
+	} else if (strcmp(name, "stroke-dasharray") == 0) {
+		attr->strokeDashCount = nsvg__parseStrokeDashArray(p, value, attr->strokeDashArray);
+	} else if (strcmp(name, "stroke-dashoffset") == 0) {
+		attr->strokeDashOffset = nsvg__parseCoordinate(p, value, 0.0f, nsvg__actualLength(p));
 	} else if (strcmp(name, "stroke-opacity") == 0) {
 		attr->strokeOpacity = nsvg__parseOpacity(value);
 	} else if (strcmp(name, "stroke-linecap") == 0) {
@@ -2632,7 +2690,7 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 {
 	NSVGshape* shape;
 	NSVGpath* path;
-	float tx, ty, sx, sy, us, bounds[4], t[6];
+	float tx, ty, sx, sy, us, bounds[4], t[6], avgs;
 	int i;
 	float* pt;
 
@@ -2683,6 +2741,7 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 	// Transform
 	sx *= us;
 	sy *= us;
+	avgs = (sx+sy) / 2.0f;
 	for (shape = p->image->shapes; shape != NULL; shape = shape->next) {
 		shape->bounds[0] = (shape->bounds[0] + tx) * sx;
 		shape->bounds[1] = (shape->bounds[1] + ty) * sy;
@@ -2711,6 +2770,10 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 			nsvg__xformInverse(shape->stroke.gradient->xform, t);
 		}
 
+		shape->strokeWidth *= avgs;
+		shape->strokeDashOffset *= avgs;
+		for (i = 0; i < shape->strokeDashCount; i++)
+			shape->strokeDashArray[i] *= avgs;
 	}
 }
 
