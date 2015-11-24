@@ -785,6 +785,16 @@ static float nsvg__convertToPixels(NSVGparser* p, NSVGcoordinate c, float orig, 
 	return c.value;
 }
 
+// When converting gradient vector co-ordinates and the gradient is in object
+// space then only 'percent' and 'user' co-ordinates make sense.
+static float nsvg__convertToPixelsForGradient(NSVGparser* p, char units, NSVGcoordinate c, float orig, float length)
+{
+    if (units == NSVG_USER_SPACE ||
+        c.units == NSVG_UNITS_PERCENT)
+        return nsvg__convertToPixels(p, c, orig, length);
+    return orig + c.value * length;
+}
+
 static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
 {
 	NSVGgradientData* grad = p->gradients;
@@ -840,10 +850,10 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 
 	if (data->type == NSVG_PAINT_LINEAR_GRADIENT) {
 		float x1, y1, x2, y2, dx, dy;
-		x1 = nsvg__convertToPixels(p, data->linear.x1, ox, sw);
-		y1 = nsvg__convertToPixels(p, data->linear.y1, oy, sh);
-		x2 = nsvg__convertToPixels(p, data->linear.x2, ox, sw);
-		y2 = nsvg__convertToPixels(p, data->linear.y2, oy, sh);
+		x1 = nsvg__convertToPixelsForGradient(p, data -> units, data->linear.x1, ox, sw);
+		y1 = nsvg__convertToPixelsForGradient(p, data -> units, data->linear.y1, oy, sh);
+		x2 = nsvg__convertToPixelsForGradient(p, data -> units, data->linear.x2, ox, sw);
+		y2 = nsvg__convertToPixelsForGradient(p, data -> units, data->linear.y2, oy, sh);
 		// Calculate transform aligned to the line
 		dx = x2 - x1;
 		dy = y2 - y1;
@@ -852,11 +862,11 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 		grad->xform[4] = x1; grad->xform[5] = y1;
 	} else {
 		float cx, cy, fx, fy, r;
-		cx = nsvg__convertToPixels(p, data->radial.cx, ox, sw);
-		cy = nsvg__convertToPixels(p, data->radial.cy, oy, sh);
-		fx = nsvg__convertToPixels(p, data->radial.fx, ox, sw);
-		fy = nsvg__convertToPixels(p, data->radial.fy, oy, sh);
-		r = nsvg__convertToPixels(p, data->radial.r, 0, sl);
+		cx = nsvg__convertToPixelsForGradient(p, data -> units, data->radial.cx, ox, sw);
+		cy = nsvg__convertToPixelsForGradient(p, data -> units, data->radial.cy, oy, sh);
+		fx = nsvg__convertToPixelsForGradient(p, data -> units, data->radial.fx, ox, sw);
+		fy = nsvg__convertToPixelsForGradient(p, data -> units, data->radial.fy, oy, sh);
+		r = nsvg__convertToPixelsForGradient(p, data -> units, data->radial.r, 0, sl);
 		// Calculate transform aligned to the circle
 		grad->xform[0] = r; grad->xform[1] = 0;
 		grad->xform[2] = 0; grad->xform[3] = r;
