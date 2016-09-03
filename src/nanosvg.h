@@ -1165,6 +1165,7 @@ typedef struct NSVGNamedColor {
 	unsigned int color;
 } NSVGNamedColor;
 
+#define NANOSVG_BASIC_COLOR_COUNT 10
 NSVGNamedColor nsvg__colors[] = {
 
 	{ "red", NSVG_RGB(255, 0, 0) },
@@ -1323,20 +1324,18 @@ static unsigned int nsvg__parseColorName(const char* str)
 {
 	int i, ncolors = sizeof(nsvg__colors) / sizeof(NSVGNamedColor);
 	
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < NANOSVG_BASIC_COLOR_COUNT; i++) {
 		if (strcmp(nsvg__colors[i].name, str) == 0) {
 			return nsvg__colors[i].color;
 		}
 	}
-	if (ncolors > 10)
-	{
+	if (ncolors > NANOSVG_BASIC_COLOR_COUNT){
 		int low, high, med;
 		int res;
 		low = 10;
 		high = ncolors - 1;
 
-		while (low <= high)
-		{
+		while (low <= high) {
 			med = (low + high) / 2;
 			res = strcmp(nsvg__colors[med].name, str);
 			if(res < 0)
@@ -1344,8 +1343,7 @@ static unsigned int nsvg__parseColorName(const char* str)
 			else if (res > 0)
 				high = med - 1;
 			else
-				return nsvg__colors[med].color;
-
+  			  return nsvg__colors[med].color;
 		}
 	}
 
