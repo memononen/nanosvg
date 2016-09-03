@@ -325,24 +325,104 @@ static float nsvg__normalize(float *x, float* y)
 
 static float nsvg__absf(float x) { return x < 0 ? -x : x; }
 
-static void nsvg__flattenCubicBez(NSVGrasterizer* r,
-								  float x1, float y1, float x2, float y2,
-								  float x3, float y3, float x4, float y4,
-								  int level, int type)
-{
-	float x12,y12,x23,y23,x34,y34,x123,y123,x234,y234,x1234,y1234;
-	float dx,dy,d2,d3;
 
+static float nsvg__controlPathLength(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4)
+{
+	float l1, l2, l3;
+
+	l1 = (float) sqrt((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1));
+	l2 = (float) sqrt((x3 - x2)*(x3 - x2) + (y3 - y2)*(y3 - y2));
+	l3 = (float) sqrt((x4 - x3)*(x4 - x3) + (y4 - y3)*(y4 - y3));
+
+	return l1 + l2 + l3;
+}
+
+
+static void nsvg__flattenCubicBez(NSVGrasterizer* r,
+	float x1, float y1, float x2, float y2,
+	float x3, float y3, float x4, float y4,
+	int level, int type)
+{
+	float ax, ay, bx, by, cx, cy, dx, dy;
+	float pointX, pointY;
+	float firstFDX, firstFDY, secondFDX, secondFDY, thirdFDX, thirdFDY;
+	float h;
+	int i;
+	float control_path_len;
+	int N;
+
+	control_path_len = nsvg__controlPathLength(x1, y1, x2, y2, x3, y3, x4, y4);
+
+	/* This is going to need tweaking, gives approximate same number of divisons 
+	  as old code on the test image */
+	N = (int)(control_path_len / ( 32 * r->tessTol)) + 2;
+
+	if (N > 1024)
+		N = 1024;
+
+	/* Compute polynomial coefficients from Bezier points */
+
+	ax = -x1 + 3 * x2 + -3 * x3 + x4;
+	ay = -y1 + 3 * y2 + -3 * y3 + y4;
+
+	bx = 3 * x1 + -6 * x2 + 3 * x3;
+	by = 3 * y1 + -6 * y2 + 3 * y3;
+
+	cx = -3 * x1 + 3 * x2;
+	cy = -3 * y1 + 3 * y2;
+
+	dx = x1;
+	dy = y1;
+
+	/* Set up  step size */
+
+	h = 1.0f / (N-1);   
+
+	/* Compute forward differences from Bezier points and "h" */
+
+	pointX = dx;
+	pointY = dy;
+
+	firstFDX = ax * (h * h * h) + bx * (h * h) + cx * h;
+	firstFDY = ay * (h * h * h) + by * (h * h) + cy * h;
+
+	secondFDX = 6 * ax * (h * h * h) + 2 * bx * (h * h);
+	secondFDY = 6 * ay * (h * h * h) + 2 * by * (h * h);
+
+	thirdFDX = 6 * ax * (h * h * h);
+	thirdFDY = 6 * ay * (h * h * h);
+
+	/* Compute points at each step */
+	for (i = 0; i < N-1;i++)  {
+		nsvg__addPathPoint(r, pointX, pointY, 0);
+		pointX += firstFDX;
+		pointY += firstFDY;
+
+		firstFDX += secondFDX;
+		firstFDY += secondFDY;
+
+		secondFDX += thirdFDX;
+		secondFDY += thirdFDY;
+
+	}
+	nsvg__addPathPoint(r, pointX, pointY, type);
+
+	return;
+}
+
+
+
+#if 0
 	if (level > 10) return;
 
-	x12 = (x1+x2)*0.5f;
-	y12 = (y1+y2)*0.5f;
-	x23 = (x2+x3)*0.5f;
-	y23 = (y2+y3)*0.5f;
-	x34 = (x3+x4)*0.5f;
-	y34 = (y3+y4)*0.5f;
-	x123 = (x12+x23)*0.5f;
-	y123 = (y12+y23)*0.5f;
+	x12 = (x1 + x2)*0.5f;
+	y12 = (y1 + y2)*0.5f;
+	x23 = (x2 + x3)*0.5f;
+	y23 = (y2 + y3)*0.5f;
+	x34 = (x3 + x4)*0.5f;
+	y34 = (y3 + y4)*0.5f;
+	x123 = (x12 + x23)*0.5f;
+	y123 = (y12 + y23)*0.5f;
 
 	dx = x4 - x1;
 	dy = y4 - y1;
@@ -354,14 +434,15 @@ static void nsvg__flattenCubicBez(NSVGrasterizer* r,
 		return;
 	}
 
-	x234 = (x23+x34)*0.5f;
-	y234 = (y23+y34)*0.5f;
-	x1234 = (x123+x234)*0.5f;
-	y1234 = (y123+y234)*0.5f;
+	x234 = (x23 + x34)*0.5f;
+	y234 = (y23 + y34)*0.5f;
+	x1234 = (x123 + x234)*0.5f;
+	y1234 = (y123 + y234)*0.5f;
 
-	nsvg__flattenCubicBez(r, x1,y1, x12,y12, x123,y123, x1234,y1234, level+1, 0);
-	nsvg__flattenCubicBez(r, x1234,y1234, x234,y234, x34,y34, x4,y4, level+1, type);
+	nsvg__flattenCubicBez(r, x1, y1, x12, y12, x123, y123, x1234, y1234, level + 1, 0);
+	nsvg__flattenCubicBez(r, x1234, y1234, x234, y234, x34, y34, x4, y4, level + 1, type);
 }
+#endif
 
 static void nsvg__flattenShape(NSVGrasterizer* r, NSVGshape* shape, float scale)
 {
