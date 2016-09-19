@@ -17,7 +17,7 @@
  * misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  *
- * The SVG parser is based on Anti-Graim Geometry 2.4 SVG example
+ * The SVG parser is based on Anti-Grain Geometry 2.4 SVG example
  * Copyright (C) 2002-2004 Maxim Shemanarev (McSeem) (http://www.antigrain.com/)
  *
  * Arc calculation code based on canvg (https://code.google.com/p/canvg/)
@@ -53,13 +53,13 @@ extern "C" {
 
 /* Example Usage:
 	// Load
-	SNVGImage* image;
+	NSVGImage* image;
 	image = nsvgParseFromFile("test.svg", "px", 96);
 	printf("size: %f x %f\n", image->width, image->height);
 	// Use...
-	for (shape = image->shapes; shape != NULL; shape = shape->next) {
-		for (path = shape->paths; path != NULL; path = path->next) {
-			for (i = 0; i < path->npts-1; i += 3) {
+	for (NSVGshape *shape = image->shapes; shape != NULL; shape = shape->next) {
+		for (NSVGpath *path = shape->paths; path != NULL; path = path->next) {
+			for (int i = 0; i < path->npts-1; i += 3) {
 				float* p = &path->pts[i*2];
 				drawCubicBez(p[0],p[1], p[2],p[3], p[4],p[5], p[6],p[7]);
 			}
@@ -2179,7 +2179,7 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 							break;
 						case 'T':
 						case 't':
-							nsvg__pathQuadBezShortTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 's' ? 1 : 0);
+							nsvg__pathQuadBezShortTo(p, &cpx, &cpy, &cpx2, &cpy2, args, cmd == 't' ? 1 : 0);
 							break;
 						case 'A':
 						case 'a':
@@ -2891,7 +2891,7 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 	fseek(fp, 0, SEEK_SET);
 	data = (char*)malloc(size+1);
 	if (data == NULL) goto error;
-	fread(data, size, 1, fp);
+	if (fread(data, 1, size, fp) != size) goto error;
 	data[size] = '\0';	// Must be null terminated.
 	fclose(fp);
 	image = nsvgParse(data, units, dpi);
