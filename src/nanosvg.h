@@ -151,7 +151,7 @@ typedef struct NSVGshape
 	NSVGpath* paths;			// Linked list of paths in the image.
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
 
-	const char *image_href;
+	char *image_href;
 } NSVGshape;
 
 typedef struct NSVGimage
@@ -2421,7 +2421,7 @@ static void nsvg__parseIMAGE(NSVGparser* p, const char** attr)
 	float w = 0.0f;
 	float h = 0.0f;
 	int i;
-	const char *href = NULL;
+	char *href = NULL;
 
 	for (i = 0; attr[i]; i += 2) {
 		if (!nsvg__parseAttr(p, attr[i], attr[i + 1])) {
@@ -2429,7 +2429,7 @@ static void nsvg__parseIMAGE(NSVGparser* p, const char** attr)
 			if (strcmp(attr[i], "y") == 0) y = nsvg__parseCoordinate(p, attr[i+1], nsvg__actualOrigY(p), nsvg__actualHeight(p));
 			if (strcmp(attr[i], "width") == 0) w = nsvg__parseCoordinate(p, attr[i+1], 0.0f, nsvg__actualWidth(p));
 			if (strcmp(attr[i], "height") == 0) h = nsvg__parseCoordinate(p, attr[i+1], 0.0f, nsvg__actualHeight(p));
-			if (strcmp(attr[i], "xlink:href") == 0) href = attr[i+1];
+			if (strcmp(attr[i], "xlink:href") == 0) href = strdup(attr[i+1]);
 		}
 	}
 
