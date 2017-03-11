@@ -732,7 +732,7 @@ static void nsvg__flattenShapeStroke(NSVGrasterizer* r, NSVGshape* shape, float 
 	int i, j, closed;
 	NSVGpath* path;
 	NSVGpoint* p0, *p1;
-	float miterLimit = 4;
+	float miterLimit = shape->miterLimit;
 	int lineJoin = shape->strokeLineJoin;
 	int lineCap = shape->strokeLineCap;
 	float lineWidth = shape->strokeWidth * scale;
