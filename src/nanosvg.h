@@ -145,6 +145,7 @@ typedef struct NSVGshape
 	char strokeDashCount;				// Number of dash values in dash array.
 	char strokeLineJoin;		// Stroke join type.
 	char strokeLineCap;			// Stroke cap type.
+    float miterLimit;			// Miter limit
 	char fillRule;				// Fill rule, see NSVGfillRule.
 	unsigned char flags;		// Logical or of NSVG_FLAGS_* flags
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
@@ -413,6 +414,7 @@ typedef struct NSVGattrib
 	int strokeDashCount;
 	char strokeLineJoin;
 	char strokeLineCap;
+    float miterLimit;
 	char fillRule;
 	float fontSize;
 	unsigned int stopColor;
@@ -620,6 +622,7 @@ static NSVGparser* nsvg__createParser()
 	p->attr[0].strokeWidth = 1;
 	p->attr[0].strokeLineJoin = NSVG_JOIN_MITER;
 	p->attr[0].strokeLineCap = NSVG_CAP_BUTT;
+	p->attr[0].miterLimit = 4;
 	p->attr[0].fillRule = NSVG_FILLRULE_NONZERO;
 	p->attr[0].hasFill = 1;
 	p->attr[0].visible = 1;
@@ -938,6 +941,7 @@ static void nsvg__addShape(NSVGparser* p)
 		shape->strokeDashArray[i] = attr->strokeDashArray[i] * scale;
 	shape->strokeLineJoin = attr->strokeLineJoin;
 	shape->strokeLineCap = attr->strokeLineCap;
+	shape->miterLimit = attr->miterLimit;
 	shape->fillRule = attr->fillRule;
 	shape->opacity = attr->opacity;
 
@@ -1353,6 +1357,14 @@ static float nsvg__parseOpacity(const char* str)
 	return val;
 }
 
+static float nsvg__parseMiterLimit(const char* str)
+{
+	float val = 0;
+	sscanf(str, "%f", &val);
+	if (val < 0.0f) val = 0.0f;
+	return val;
+}
+
 static int nsvg__parseUnits(const char* units)
 {
 	if (units[0] == 'p' && units[1] == 'x')
@@ -1679,6 +1691,8 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		attr->strokeLineCap = nsvg__parseLineCap(value);
 	} else if (strcmp(name, "stroke-linejoin") == 0) {
 		attr->strokeLineJoin = nsvg__parseLineJoin(value);
+	} else if (strcmp(name, "stroke-miterlimit") == 0) {
+		attr->miterLimit = nsvg__parseMiterLimit(value);
 	} else if (strcmp(name, "fill-rule") == 0) {
 		attr->fillRule = nsvg__parseFillRule(value);
 	} else if (strcmp(name, "font-size") == 0) {
