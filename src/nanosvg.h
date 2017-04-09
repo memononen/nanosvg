@@ -42,7 +42,7 @@ extern "C" {
 // NanoSVG supports a wide range of SVG features, but something may be missing, feel free to create a pull request!
 //
 // The shapes in the SVG images are transformed by the viewBox and converted to specified units.
-// That is, you should get the same looking data as your designed in your favorite app.
+// That is, you should get the same looking data as you designed in your favorite app.
 //
 // NanoSVG can return the paths in few different units. For example if you want to render an image, you may choose
 // to get the paths in pixels, or if you are feeding the data into a CNC-cutter, you may want to use millimeters.
@@ -135,9 +135,16 @@ typedef struct NSVGpath
 	struct NSVGpath* next;		// Pointer to next path, or NULL if last element.
 } NSVGpath;
 
+typedef struct NSVGgroup
+{
+	char id[64];
+	struct NSVGgroup* parent;			// Pointer to parent group or NULL
+	struct NSVGgroup* next;			// Pointer to next group or NULL
+} NSVGgroup;
+
 typedef struct NSVGshape
 {
-	char id[64];				// Optional 'id' attr of the shape or its group
+	char id[64];				// Optional 'id' attr of the shape
 	NSVGpaint fill;				// Fill paint
 	NSVGpaint stroke;			// Stroke paint
 	float opacity;				// Opacity of the shape.
@@ -152,6 +159,7 @@ typedef struct NSVGshape
 	unsigned char flags;		// Logical or of NSVG_FLAGS_* flags
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
 	NSVGpath* paths;			// Linked list of paths in the image.
+	NSVGgroup* group;			// Pointer to parent group or NULL
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
 } NSVGshape;
 
@@ -160,6 +168,7 @@ typedef struct NSVGimage
 	float width;				// Width of the image.
 	float height;				// Height of the image.
 	NSVGshape* shapes;			// Linked list of shapes in the image.
+	NSVGgroup* groups;			// Linked list of all groups in the image
 } NSVGimage;
 
 // Parses SVG file from a file, returns SVG image as paths.
@@ -439,6 +448,7 @@ typedef struct NSVGattrib
 	char hasFill;
 	char hasStroke;
 	char visible;
+	NSVGgroup* group;
 } NSVGattrib;
 
 typedef struct NSVGparser
@@ -751,6 +761,7 @@ static void nsvg__pushAttr(NSVGparser* p)
 	if (p->attrHead < NSVG_MAX_ATTR-1) {
 		p->attrHead++;
 		memcpy(&p->attr[p->attrHead], &p->attr[p->attrHead-1], sizeof(NSVGattrib));
+		memset(&p->attr[p->attrHead].id, 0, sizeof(p->attr[p->attrHead].id));
 	}
 }
 
@@ -950,6 +961,7 @@ static void nsvg__addShape(NSVGparser* p)
 	memset(shape, 0, sizeof(NSVGshape));
 
 	memcpy(shape->id, attr->id, sizeof shape->id);
+	shape->group = attr->group;
 	scale = nsvg__getAverageScale(attr->xform);
 	shape->strokeWidth = attr->strokeWidth * scale;
 	shape->strokeDashOffset = attr->strokeDashOffset * scale;
@@ -2660,6 +2672,24 @@ static void nsvg__parseGradientStop(NSVGparser* p, const char** attr)
 	stop->offset = curAttr->stopOffset;
 }
 
+static void nsvg__parseGroup(NSVGparser* p, const char** attr)
+{
+	NSVGgroup* group;
+	NSVGattrib* curAttr = nsvg__getAttr(p);
+
+	nsvg__parseAttribs(p, attr);
+
+	group = (NSVGgroup*)malloc(sizeof(NSVGgroup));
+	memset(group, 0, sizeof(NSVGgroup));
+	memcpy(group->id, curAttr->id, sizeof(group->id));
+	group->parent = curAttr->group;
+	curAttr->group = group;
+
+	// Add to front of global group list
+	group->next = p->image->groups;
+	p->image->groups = group;
+}
+
 static void nsvg__startElement(void* ud, const char* el, const char** attr)
 {
 	NSVGparser* p = (NSVGparser*)ud;
@@ -2678,7 +2708,7 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 
 	if (strcmp(el, "g") == 0) {
 		nsvg__pushAttr(p);
-		nsvg__parseAttribs(p, attr);
+		nsvg__parseGroup(p, attr);
 	} else if (strcmp(el, "path") == 0) {
 		if (p->pathFlag)	// Do not allow nested paths.
 			return;
@@ -2959,6 +2989,7 @@ error:
 void nsvgDelete(NSVGimage* image)
 {
 	NSVGshape *snext, *shape;
+	NSVGgroup *group, *gnext;
 	if (image == NULL) return;
 	shape = image->shapes;
 	while (shape != NULL) {
@@ -2968,6 +2999,12 @@ void nsvgDelete(NSVGimage* image)
 		nsvg__deletePaint(&shape->stroke);
 		free(shape);
 		shape = snext;
+	}
+	group = image->groups;
+	while (group != NULL) {
+		gnext = group->next;
+		free(group);
+		group = gnext;
 	}
 	free(image);
 }
