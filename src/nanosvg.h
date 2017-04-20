@@ -151,6 +151,8 @@ typedef struct NSVGshape
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
 	NSVGpath* paths;			// Linked list of paths in the image.
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
+
+	char *image_href;
 } NSVGshape;
 
 typedef struct NSVGimage
@@ -2418,6 +2420,76 @@ static void nsvg__parsePoly(NSVGparser* p, const char** attr, int closeFlag)
 	nsvg__addShape(p);
 }
 
+static void nsvg__parseIMAGE(NSVGparser* p, const char** attr)
+{
+	float x = 0.0f;
+	float y = 0.0f;
+	float w = 0.0f;
+	float h = 0.0f;
+	int i;
+	char *href = NULL;
+
+	for (i = 0; attr[i]; i += 2) {
+		if (!nsvg__parseAttr(p, attr[i], attr[i + 1])) {
+			if (strcmp(attr[i], "x") == 0) x = nsvg__parseCoordinate(p, attr[i+1], nsvg__actualOrigX(p), nsvg__actualWidth(p));
+			if (strcmp(attr[i], "y") == 0) y = nsvg__parseCoordinate(p, attr[i+1], nsvg__actualOrigY(p), nsvg__actualHeight(p));
+			if (strcmp(attr[i], "width") == 0) w = nsvg__parseCoordinate(p, attr[i+1], 0.0f, nsvg__actualWidth(p));
+			if (strcmp(attr[i], "height") == 0) h = nsvg__parseCoordinate(p, attr[i+1], 0.0f, nsvg__actualHeight(p));
+			if (strcmp(attr[i], "xlink:href") == 0) href = strdup(attr[i+1]);
+		}
+	}
+
+	if (w != 0.0f && h != 0.0f) {
+		nsvg__resetPath(p);
+
+		NSVGattrib* attr = nsvg__getAttr(p);
+		float scale = 1.0f;
+		NSVGshape *shape, *cur, *prev;
+
+		if (href == NULL)
+			return;
+
+		shape = (NSVGshape*)malloc(sizeof(NSVGshape));
+		if (shape == NULL) goto error;
+		memset(shape, 0, sizeof(NSVGshape));
+
+		memcpy(shape->id, attr->id, sizeof shape->id);
+		scale = nsvg__getAverageScale(attr->xform);
+		shape->opacity = attr->opacity;
+
+		shape->paths = NULL; // FIXME: na pewno NULL?
+		shape->image_href = href;
+		p->plist = NULL;
+
+		shape->bounds[0] = x;
+		shape->bounds[1] = y;
+		shape->bounds[2] = x+w;
+		shape->bounds[3] = y+h;
+
+		// Set flags
+		shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
+
+		// Add to tail
+		prev = NULL;
+		cur = p->image->shapes;
+		while (cur != NULL) {
+			prev = cur;
+			cur = cur->next;
+		}
+		if (prev == NULL)
+			p->image->shapes = shape;
+		else
+			prev->next = shape;
+
+		return;
+
+	error:
+		if (shape) free(shape);
+
+		
+	}
+}
+
 static void nsvg__parseSVG(NSVGparser* p, const char** attr)
 {
 	int i;
@@ -2629,6 +2701,10 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		p->defsFlag = 1;
 	} else if (strcmp(el, "svg") == 0) {
 		nsvg__parseSVG(p, attr);
+	} else if (strcmp(el, "image") == 0) {
+		nsvg__pushAttr(p);
+		nsvg__parseIMAGE(p, attr);
+		nsvg__popAttr(p);
 	}
 }
 
