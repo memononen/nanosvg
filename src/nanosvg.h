@@ -745,7 +745,7 @@ static void nsvg__pushAttr(NSVGparser* p)
 	if (p->attrHead < NSVG_MAX_ATTR-1) {
 		p->attrHead++;
 		memcpy(&p->attr[p->attrHead], &p->attr[p->attrHead-1], sizeof(NSVGattrib));
-		memset(&p->attr[p->attrHead], 0, sizeof(p->attr[p->attrHead].id));
+		memset(&p->attr[p->attrHead].id, 0, sizeof(p->attr[p->attrHead].id));
 	}
 }
 
