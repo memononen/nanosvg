@@ -996,17 +996,9 @@ static void nsvg__addShape(NSVGparser* p)
 	// Set flags
 	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
 
-	// Add to tail
-	prev = NULL;
-	cur = p->image->shapes;
-	while (cur != NULL) {
-		prev = cur;
-		cur = cur->next;
-	}
-	if (prev == NULL)
-		p->image->shapes = shape;
-	else
-		prev->next = shape;
+	// Add to head due to performance, reverse list later
+	shape->next = p->image->shapes;
+	p->image->shapes = shape;
 
 	return;
 
@@ -2795,6 +2787,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 {
 	NSVGparser* p;
 	NSVGimage* ret = 0;
+	NSVGshape* cur, *tmp;
 
 	p = nsvg__createParser();
 	if (p == NULL) {
@@ -2803,6 +2796,16 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	p->dpi = dpi;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
+	
+	//reverse the list of shapes to match svg order
+	cur = p->image->shapes;
+	while (cur && cur->next != NULL) {
+		tmp = cur->next;
+		cur->next = cur->next->next;
+		tmp->next = p->image->shapes;
+		p->image->shapes = tmp;
+		cur = cur->next;
+	}
 
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
