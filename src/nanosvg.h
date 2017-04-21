@@ -435,6 +435,7 @@ typedef struct NSVGparser
 	NSVGpath* plist;
 	NSVGimage* image;
 	NSVGgradientData* gradients;
+	NSVGshape *shapesTail;
 	float viewMinx, viewMiny, viewWidth, viewHeight;
 	int alignX, alignY, alignType;
 	float dpi;
@@ -996,9 +997,13 @@ static void nsvg__addShape(NSVGparser* p)
 	// Set flags
 	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
 
-	// Add to head due to performance, reverse list later
-	shape->next = p->image->shapes;
-	p->image->shapes = shape;
+	// Add to tail
+	if (NULL == p->image->shapes) {
+		p->image->shapes = shape;
+	} else {
+		p->shapesTail->next = shape;
+	}
+	p->shapesTail = shape;
 
 	return;
 
@@ -2797,16 +2802,6 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
 	
-	//reverse the list of shapes to match svg order
-	cur = p->image->shapes;
-	while (cur && cur->next != NULL) {
-		tmp = cur->next;
-		cur->next = cur->next->next;
-		tmp->next = p->image->shapes;
-		p->image->shapes = tmp;
-		cur = cur->next;
-	}
-
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
 
