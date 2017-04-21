@@ -73,30 +73,30 @@ enum NSVGpaintType {
 	NSVG_PAINT_NONE = 0,
 	NSVG_PAINT_COLOR = 1,
 	NSVG_PAINT_LINEAR_GRADIENT = 2,
-	NSVG_PAINT_RADIAL_GRADIENT = 3,
+	NSVG_PAINT_RADIAL_GRADIENT = 3
 };
 
 enum NSVGspreadType {
 	NSVG_SPREAD_PAD = 0,
 	NSVG_SPREAD_REFLECT = 1,
-	NSVG_SPREAD_REPEAT = 2,
+	NSVG_SPREAD_REPEAT = 2
 };
 
 enum NSVGlineJoin {
 	NSVG_JOIN_MITER = 0,
 	NSVG_JOIN_ROUND = 1,
-	NSVG_JOIN_BEVEL = 2,
+	NSVG_JOIN_BEVEL = 2
 };
 
 enum NSVGlineCap {
 	NSVG_CAP_BUTT = 0,
 	NSVG_CAP_ROUND = 1,
-	NSVG_CAP_SQUARE = 2,
+	NSVG_CAP_SQUARE = 2
 };
 
 enum NSVGfillRule {
 	NSVG_FILLRULE_NONZERO = 0,
-	NSVG_FILLRULE_EVENODD = 1,
+	NSVG_FILLRULE_EVENODD = 1
 };
 
 enum NSVGflags {
@@ -171,7 +171,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi);
 void nsvgDelete(NSVGimage* image);
 
 #ifdef __cplusplus
-};
+}
 #endif
 
 #endif // NANOSVG_H
@@ -183,7 +183,7 @@ void nsvgDelete(NSVGimage* image);
 #include <math.h>
 
 #define NSVG_PI (3.14159265358979323846264338327f)
-#define NSVG_KAPPA90 (0.5522847493f)	// Lenght proportional to radius of a cubic bezier handle for 90deg arcs.
+#define NSVG_KAPPA90 (0.5522847493f)	// Length proportional to radius of a cubic bezier handle for 90deg arcs.
 
 #define NSVG_ALIGN_MIN 0
 #define NSVG_ALIGN_MID 1
@@ -349,7 +349,7 @@ int nsvg__parseXML(char* input,
 
 enum NSVGgradientUnits {
 	NSVG_USER_SPACE = 0,
-	NSVG_OBJECT_SPACE = 1,
+	NSVG_OBJECT_SPACE = 1
 };
 
 #define NSVG_MAX_DASHES 8
@@ -364,7 +364,7 @@ enum NSVGunits {
 	NSVG_UNITS_IN,
 	NSVG_UNITS_PERCENT,
 	NSVG_UNITS_EM,
-	NSVG_UNITS_EX,
+	NSVG_UNITS_EX
 };
 
 typedef struct NSVGcoordinate {
@@ -921,7 +921,7 @@ static void nsvg__addShape(NSVGparser* p)
 {
 	NSVGattrib* attr = nsvg__getAttr(p);
 	float scale = 1.0f;
-	NSVGshape *shape, *cur, *prev;
+	NSVGshape *shape;
 	NSVGpath* path;
 	int i;
 
@@ -936,7 +936,7 @@ static void nsvg__addShape(NSVGparser* p)
 	scale = nsvg__getAverageScale(attr->xform);
 	shape->strokeWidth = attr->strokeWidth * scale;
 	shape->strokeDashOffset = attr->strokeDashOffset * scale;
-	shape->strokeDashCount = attr->strokeDashCount;
+	shape->strokeDashCount = (char)attr->strokeDashCount;
 	for (i = 0; i < attr->strokeDashCount; i++)
 		shape->strokeDashArray[i] = attr->strokeDashArray[i] * scale;
 	shape->strokeLineJoin = attr->strokeLineJoin;
@@ -2001,7 +2001,7 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 
 	rx = fabsf(args[0]);				// y radius
 	ry = fabsf(args[1]);				// x radius
-	rotx = args[2] / 180.0f * NSVG_PI;		// x rotation engle
+	rotx = args[2] / 180.0f * NSVG_PI;		// x rotation angle
 	fa = fabsf(args[3]) > 1e-6 ? 1 : 0;	// Large arc
 	fs = fabsf(args[4]) > 1e-6 ? 1 : 0;	// Sweep direction
 	x1 = *cpx;							// start point
@@ -2088,7 +2088,7 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 		kappa = -kappa;
 
 	for (i = 0; i <= ndivs; i++) {
-		a = a1 + da * (i/(float)ndivs);
+		a = a1 + da * ((float)i/(float)ndivs);
 		dx = cosf(a);
 		dy = sinf(a);
 		nsvg__xformPoint(&x, &y, dx*rx, dy*ry, t); // position
@@ -2796,8 +2796,8 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	p->dpi = dpi;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
-	
-	//reverse the list of shapes to match svg order
+
+	// Reverse the list of shapes to match SVG order
 	cur = p->image->shapes;
 	while (cur && cur->next != NULL) {
 		tmp = cur->next;
