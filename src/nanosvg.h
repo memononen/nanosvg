@@ -2787,7 +2787,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 {
 	NSVGparser* p;
 	NSVGimage* ret = 0;
-	NSVGshape* cur, *tmp;
+	NSVGshape* cur, *prev, *tmp;
 
 	p = nsvg__createParser();
 	if (p == NULL) {
@@ -2799,13 +2799,14 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 
 	// Reverse the list of shapes to match SVG order
 	cur = p->image->shapes;
-	while (cur && cur->next != NULL) {
-		tmp = cur->next;
-		cur->next = cur->next->next;
-		tmp->next = p->image->shapes;
-		p->image->shapes = tmp;
+	prev = NULL;
+	while (cur != NULL) {
+		tmp = cur;
 		cur = cur->next;
+		tmp->next = prev;
+		prev = tmp;
 	}
+	if (prev != NULL) p->image->shapes = prev;
 
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
