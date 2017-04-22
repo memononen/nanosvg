@@ -145,7 +145,7 @@ typedef struct NSVGshape
 	char strokeDashCount;				// Number of dash values in dash array.
 	char strokeLineJoin;		// Stroke join type.
 	char strokeLineCap;			// Stroke cap type.
-    float miterLimit;			// Miter limit
+	float miterLimit;			// Miter limit
 	char fillRule;				// Fill rule, see NSVGfillRule.
 	unsigned char flags;		// Logical or of NSVG_FLAGS_* flags
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
@@ -414,7 +414,7 @@ typedef struct NSVGattrib
 	int strokeDashCount;
 	char strokeLineJoin;
 	char strokeLineCap;
-    float miterLimit;
+	float miterLimit;
 	char fillRule;
 	float fontSize;
 	unsigned int stopColor;
@@ -435,6 +435,7 @@ typedef struct NSVGparser
 	NSVGpath* plist;
 	NSVGimage* image;
 	NSVGgradientData* gradients;
+	NSVGshape* shapesTail;
 	float viewMinx, viewMiny, viewWidth, viewHeight;
 	int alignX, alignY, alignType;
 	float dpi;
@@ -996,9 +997,12 @@ static void nsvg__addShape(NSVGparser* p)
 	// Set flags
 	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
 
-	// Add to head due to performance, reverse list later
-	shape->next = p->image->shapes;
-	p->image->shapes = shape;
+	// Add to tail
+	if (p->image->shapes == NULL)
+		p->image->shapes = shape;
+	else
+		p->shapesTail->next = shape;
+	p->shapesTail = shape;
 
 	return;
 
@@ -2151,23 +2155,23 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 							// Moveto can be followed by multiple coordinate pairs,
 							// which should be treated as linetos.
 							cmd = (cmd == 'm') ? 'l' : 'L';
-                            rargs = nsvg__getArgsPerElement(cmd);
-                            cpx2 = cpx; cpy2 = cpy;
+							rargs = nsvg__getArgsPerElement(cmd);
+							cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'l':
 						case 'L':
 							nsvg__pathLineTo(p, &cpx, &cpy, args, cmd == 'l' ? 1 : 0);
-                            cpx2 = cpx; cpy2 = cpy;
+							cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'H':
 						case 'h':
 							nsvg__pathHLineTo(p, &cpx, &cpy, args, cmd == 'h' ? 1 : 0);
-                            cpx2 = cpx; cpy2 = cpy;
+							cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'V':
 						case 'v':
 							nsvg__pathVLineTo(p, &cpx, &cpy, args, cmd == 'v' ? 1 : 0);
-                            cpx2 = cpx; cpy2 = cpy;
+							cpx2 = cpx; cpy2 = cpy;
 							break;
 						case 'C':
 						case 'c':
@@ -2188,13 +2192,13 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 						case 'A':
 						case 'a':
 							nsvg__pathArcTo(p, &cpx, &cpy, args, cmd == 'a' ? 1 : 0);
-                            cpx2 = cpx; cpy2 = cpy;
+							cpx2 = cpx; cpy2 = cpy;
 							break;
 						default:
 							if (nargs >= 2) {
 								cpx = args[nargs-2];
 								cpy = args[nargs-1];
-	                            cpx2 = cpx; cpy2 = cpy;
+								cpx2 = cpx; cpy2 = cpy;
 							}
 							break;
 					}
@@ -2797,16 +2801,6 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
 	
-	//reverse the list of shapes to match svg order
-	cur = p->image->shapes;
-	while (cur && cur->next != NULL) {
-		tmp = cur->next;
-		cur->next = cur->next->next;
-		tmp->next = p->image->shapes;
-		p->image->shapes = tmp;
-		cur = cur->next;
-	}
-
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
 
