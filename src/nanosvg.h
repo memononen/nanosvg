@@ -2799,7 +2799,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	p->dpi = dpi;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
-
+  
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
 
