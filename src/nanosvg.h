@@ -282,7 +282,7 @@ static void nsvg__parseElement(char* s,
 		char* name = NULL;
 		char* value = NULL;
 
-		// Skip white space before the attrib char* name = NULL;
+		// Skip white space before the attrib name
 		while (*s && nsvg__isspace(*s)) s++;
 		if (!*s) break;
 		if (*s == '/') {
