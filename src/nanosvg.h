@@ -279,6 +279,9 @@ static void nsvg__parseElement(char* s,
 
 	// Get attribs
 	while (!end && *s && nattr < NSVG_XML_MAX_ATTRIBS-3) {
+		char* name = NULL;
+		char* value = NULL;
+
 		// Skip white space before the attrib name
 		while (*s && nsvg__isspace(*s)) s++;
 		if (!*s) break;
@@ -286,7 +289,7 @@ static void nsvg__parseElement(char* s,
 			end = 1;
 			break;
 		}
-		attr[nattr++] = s;
+		name = s;
 		// Find end of the attrib name.
 		while (*s && !nsvg__isspace(*s) && *s != '=') s++;
 		if (*s) { *s++ = '\0'; }
@@ -296,9 +299,15 @@ static void nsvg__parseElement(char* s,
 		quote = *s;
 		s++;
 		// Store value and find the end of it.
-		attr[nattr++] = s;
+		value = s;
 		while (*s && *s != quote) s++;
 		if (*s) { *s++ = '\0'; }
+
+		// Store only well formed attributes
+		if (name && value) {
+			attr[nattr++] = name;
+			attr[nattr++] = value;
+		}
 	}
 
 	// List terminator
@@ -1388,7 +1397,7 @@ static NSVGcoordinate nsvg__parseCoordinateRaw(const char* str)
 {
 	NSVGcoordinate coord = {0, NSVG_UNITS_USER};
 	char units[32]="";
-	sscanf(str, "%f%s", &coord.value, units);
+	sscanf(str, "%f%31s", &coord.value, units);
 	coord.units = nsvg__parseUnits(units);
 	return coord;
 }
@@ -2799,7 +2808,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	p->dpi = dpi;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
-  
+
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
 
