@@ -2694,12 +2694,12 @@ static float nsvg__viewAlign(float content, float container, int type)
 
 static void nsvg__scaleGradient(NSVGgradient* grad, float tx, float ty, float sx, float sy)
 {
-	grad->xform[0] *= sx;
-	grad->xform[1] *= sx;
-	grad->xform[2] *= sy;
-	grad->xform[3] *= sy;
-	grad->xform[4] += tx*sx;
-	grad->xform[5] += ty*sx;
+	float t[6];
+	nsvg__xformSetTranslation(t, tx, ty);
+	nsvg__xformMultiply (grad->xform, t);
+
+	nsvg__xformSetScale(t, sx, sy);
+	nsvg__xformMultiply (grad->xform, t);
 }
 
 static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
