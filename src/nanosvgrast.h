@@ -25,6 +25,14 @@
 #ifndef NANOSVGRAST_H
 #define NANOSVGRAST_H
 
+#ifndef NSVG_INLINE
+#if defined(_MSC_VER) && !defined(__cplusplus)
+#define NSVG_INLINE __inline  
+#else
+#define NSVG_INLINE inline  
+#endif
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -850,7 +858,7 @@ static int nsvg__cmpEdge(const void *p, const void *q)
 static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float startPoint)
 {
 	 NSVGactiveEdge* z;
-
+	 float dxdy = 0.0f;
 	if (r->freelist != NULL) {
 		// Restore from freelist.
 		z = r->freelist;
@@ -861,7 +869,7 @@ static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float sta
 		if (z == NULL) return NULL;
 	}
 
-	float dxdy = (e->x1 - e->x0) / (e->y1 - e->y0);
+	dxdy = (e->x1 - e->x0) / (e->y1 - e->y0);
 //	STBTT_assert(e->y0 <= start_point);
 	// round dx down to avoid going too far
 	if (dxdy < 0)
@@ -974,7 +982,7 @@ static unsigned int nsvg__applyOpacity(unsigned int c, float u)
 	return nsvg__RGBA((unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a);
 }
 
-static inline int nsvg__div255(int x)
+static NSVG_INLINE int nsvg__div255(int x)
 {
     return ((x+1) * 257) >> 16;
 }

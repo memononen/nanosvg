@@ -29,6 +29,56 @@
 #ifndef NANOSVG_H
 #define NANOSVG_H
 
+#if defined(_WIN32) && defined(_MSC_VER)
+	#pragma warning (disable: 4996) // Switch off security warnings
+	#pragma warning (disable: 4100) // Switch off unreferenced formal parameter warnings
+	#pragma warning (disable: 4201) // Switch off "nonstandard extension used : nameless struct/union" warnings
+	#pragma warning (disable: 4127) // Switch off "conditional expression is constant" warnings
+	#pragma warning (disable: 4204) // Switch off "nonstandard extension used : non-constant aggregate initializer" warnings
+#endif
+
+#ifndef NSVG_INLINE
+#if defined(_MSC_VER) && !defined(__cplusplus)
+#define NSVG_INLINE __inline  
+#else
+#define NSVG_INLINE inline  
+#endif
+#endif
+
+#ifndef sqrtf
+#define sqrtf(x)    ((float)sqrt((double)(x)))
+#endif
+#ifndef tanf
+#define tanf(x)     ((float)tan((double)(x)))
+#endif
+#ifndef sinf
+#define sinf(x)     ((float)sin((double)(x)))
+#endif
+#ifndef powf
+#define powf(x,y)   ((float)pow((double)(x), (double)(y)))
+#endif
+#ifndef fabsf
+#define fabsf(x)    ((float)fabs((double)(x)))
+#endif
+#ifndef acosf
+#define acosf(x)    ((float)acos((double)(x)))
+#endif
+#ifndef fmodf
+#define fmodf(x,y)  ((float)fmod((double)(x), (double)(y)))
+#endif
+#ifndef ceilf
+#define ceilf(x)    ((float)ceil((double)(x)))
+#endif
+#ifndef atan2f
+#define atan2f(y,x) ((float)atan2((double)(y), (double)(x)))
+#endif
+#ifndef floorf
+#define floorf(x)   ((float)floor((double)(x)))
+#endif
+#ifndef cosf
+#define cosf(x)     ((float)cos((double)(x)))
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -173,7 +223,6 @@ void nsvgDelete(NSVGimage* image);
 #ifdef __cplusplus
 }
 #endif
-
 #endif // NANOSVG_H
 
 #ifdef NANOSVG_IMPLEMENTATION
@@ -194,19 +243,6 @@ void nsvgDelete(NSVGimage* image);
 
 #define NSVG_NOTUSED(v) do { (void)(1 ? (void)0 : ( (void)(v) ) ); } while(0)
 #define NSVG_RGB(r, g, b) (((unsigned int)r) | ((unsigned int)g << 8) | ((unsigned int)b << 16))
-
-#ifdef _MSC_VER
-	#pragma warning (disable: 4996) // Switch off security warnings
-	#pragma warning (disable: 4100) // Switch off unreferenced formal parameter warnings
-	#ifdef __cplusplus
-	#define NSVG_INLINE inline
-	#else
-	#define NSVG_INLINE
-	#endif
-#else
-	#define NSVG_INLINE inline
-#endif
-
 
 static int nsvg__isspace(char c)
 {
@@ -793,7 +829,6 @@ static float nsvg__convertToPixels(NSVGparser* p, NSVGcoordinate c, float orig, 
 		case NSVG_UNITS_EM:			return c.value * attr->fontSize;
 		case NSVG_UNITS_EX:			return c.value * attr->fontSize * 0.52f; // x-height of Helvetica.
 		case NSVG_UNITS_PERCENT:	return orig + c.value / 100.0f * length;
-		default:					return c.value;
 	}
 	return c.value;
 }

@@ -49,7 +49,7 @@ int main()
 		goto error;
 	}
 
-	img = malloc(w*h*4);
+	img = (unsigned char*)malloc(w*h*4);
 	if (img == NULL) {
 		printf("Could not alloc image buffer.\n");
 		goto error;
