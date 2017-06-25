@@ -124,7 +124,7 @@ typedef struct NSVGpaint {
 	};
 } NSVGpaint;
 
-#define kMaxIDLength 64
+#define kMaxIDLength 256
 #define kMaxTextLength 256
 
 typedef struct NSVGpath
@@ -3003,7 +3003,7 @@ NSVGshape* nsvgDuplicateShape(NSVGshape* shape)
     }
     memset(res, 0, sizeof(NSVGshape));
 
-    memcpy(res->id, shape->id, sizeof(char) * 64);
+    memcpy(res->id, shape->id, sizeof(char) * kMaxIDLength);
 
     res->fill                   = shape->fill;				// Fill paint
     res->stroke                 = shape->stroke;			// Stroke paint
@@ -3028,6 +3028,14 @@ NSVGshape* nsvgDuplicateShape(NSVGshape* shape)
     {
         res->next = nsvgDuplicateShape(shape->next);
     }
+
+    memcpy(res->fontFamily, shape->fontFamily, sizeof(char) * 64);
+    memcpy(res->fontWeight, shape->fontWeight, sizeof(char) * 64);
+
+    res->fontSize   = shape->fontSize;
+    res->isText     = shape->isText;
+    memcpy(res->textData, shape->textData, sizeof(char) * kMaxTextLength);
+
     return res;
 }
 
