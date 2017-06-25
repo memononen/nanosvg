@@ -2862,4 +2862,105 @@ void nsvgDelete(NSVGimage* image)
 	free(image);
 }
 
+
+NSVGpath* nsvgDuplicatePath(NSVGpath* p)
+{
+    NSVGpath* res = NULL;
+
+    if (p == NULL)
+        return NULL;
+
+    res = (NSVGpath*)malloc(sizeof(NSVGpath));
+    if (res == NULL) goto error;
+    memset(res, 0, sizeof(NSVGpath));
+
+    res->pts = (float*)malloc(p->npts * sizeof(float) * 2);
+    if (res->pts == NULL) goto error;
+    memcpy(res->pts, p->pts, p->npts * sizeof(float) * 2);
+    res->npts = p->npts;
+
+    memcpy(res->bounds, p->bounds, sizeof(p->bounds));
+
+    res->closed = p->closed;
+
+    if (p->next != NULL)
+    {
+        res->next = nsvgDuplicatePath(p->next);
+    }
+    return res;
+
+error:
+    if (res != NULL) {
+        free(res->pts);
+        free(res);
+    }
+    return NULL;
+}
+
+NSVGshape* nsvgDuplicateShape(NSVGshape* shape)
+{
+    NSVGshape* res = NULL;
+
+    if (shape == NULL)
+        return NULL;
+
+    res = (NSVGshape*)malloc(sizeof(NSVGshape));
+    if (res == NULL)
+    {
+        return res;
+    }
+    memset(res, 0, sizeof(NSVGshape));
+
+    memcpy(res->id, shape->id, sizeof(char) * 64);
+
+    res->fill                   = shape->fill;				// Fill paint
+    res->stroke                 = shape->stroke;			// Stroke paint
+    res->opacity                = shape->opacity;				// Opacity of the shape.
+    res->strokeWidth            = shape->strokeWidth;			// Stroke width (scaled).
+    res->strokeDashOffset       = shape->strokeDashOffset;		// Stroke dash offset (scaled).
+    memcpy(res->strokeDashArray, shape->strokeDashArray, sizeof(char) * 64);
+
+    res->strokeDashCount        = shape->strokeDashCount;       // Number of dash values in dash array.
+    res->strokeLineJoin         = shape->strokeDashCount;		// Stroke join type.
+    res->strokeLineCap			= shape->strokeLineCap;// Stroke cap type.
+    res->fillRule				= shape->fillRule;// Fill rule, see NSVGfillRule.
+    res->flags                  = shape->flags;		// Logical or of NSVG_FLAGS_* flags
+    memcpy(res->bounds, shape->bounds, sizeof(float) * 4);
+
+    if (shape->paths != NULL)
+    {
+        res->paths = nsvgDuplicatePath(shape->paths);
+    }
+
+    if (shape->next != NULL)
+    {
+        res->next = nsvgDuplicateShape(shape->next);
+    }
+    return res;
+}
+
+NSVGimage* nsvgDuplicateImage(NSVGimage* image)
+{
+    NSVGimage* res = NULL;
+
+    if (image == NULL)
+        return NULL;
+
+    res = (NSVGimage*)malloc(sizeof(NSVGimage));
+    if (res == NULL)
+    {
+        return res;
+    }
+    memset(res, 0, sizeof(NSVGimage));
+
+    res->height = image->height;
+    res->width  = image->width;
+
+    if (image->shapes != NULL)
+    {
+        res->shapes = nsvgDuplicateShape(image->shapes);
+    }
+    return res;
+}
+
 #endif
