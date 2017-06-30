@@ -215,7 +215,7 @@ static int nsvg__isspace(char c)
 
 static int nsvg__isdigit(char c)
 {
-	return strchr("0123456789", c) != 0;
+	return c >= '0' && c <= '9';
 }
 
 static int nsvg__isnum(char c)
@@ -1075,6 +1075,66 @@ error:
 	}
 }
 
+// We roll our own string to float because the std library one uses locale and messes things up.
+static double nsvg__atof(const char* s)
+{
+	char* cur = (char*)s;
+	char* end = NULL;
+	double res = 0.0, sign = 1.0;
+	long long intPart = 0, fracPart = 0;
+	char hasIntPart = 0, hasFracPart = 0;
+
+	// Parse optional sign
+	if (*cur == '+') {
+		cur++;
+	} else if (*cur == '-') {
+		sign = -1;
+		cur++;
+	}
+
+	// Parse integer part
+	if (nsvg__isdigit(*cur)) {
+		// Parse digit sequence
+		intPart = (double)strtoll(cur, &end, 10);
+		if (cur != end) {
+			res = (double)intPart;
+			hasIntPart = 1;
+			cur = end;
+		}
+	}
+
+	// Parse fractional part.
+	if (*cur == '.') {
+		cur++; // Skip '.'
+		if (nsvg__isdigit(*cur)) {
+			// Parse digit sequence
+			fracPart = strtoll(cur, &end, 10);
+			if (cur != end) {
+				res += (double)fracPart / pow(10.0, (double)(end - cur)) * sign;
+				hasFracPart = 1;
+				cur = end;
+			}
+		}
+	}
+
+	// A valid number should have integer or fractional part.
+	if (!hasIntPart && !hasFracPart)
+		return 0.0;
+
+	// Parse optional exponent
+	if (*cur == 'e' || *cur == 'E') {
+		int expPart = 0;
+		cur++; // skip 'E'
+		expPart = strtol(cur, &end, 10); // Parse digit sequence with sign
+		if (cur != end) {
+			res *= pow(10.0, (double)expPart);
+		}
+	}
+
+	return res * sign;
+}
+
+
 static const char* nsvg__parseNumber(const char* s, char* it, const int size)
 {
 	const int last = size-1;
@@ -1434,7 +1494,7 @@ static int nsvg__parseTransformArgs(const char* str, float* args, int maxNa, int
 		if (*ptr == '-' || *ptr == '+' || *ptr == '.' || nsvg__isdigit(*ptr)) {
 			if (*na >= maxNa) return 0;
 			ptr = nsvg__parseNumber(ptr, it, 64);
-			args[(*na)++] = (float)atof(it);
+			args[(*na)++] = (float)nsvg__atof(it);
 		} else {
 			++ptr;
 		}
@@ -2079,7 +2139,7 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 //	if (vecrat(ux,uy,vx,vy) <= -1.0f) da = NSVG_PI;
 //	if (vecrat(ux,uy,vx,vy) >= 1.0f) da = 0;
 
-	if (fs == 0 && da > 0) 
+	if (fs == 0 && da > 0)
 		da -= 2 * NSVG_PI;
 	else if (fs == 1 && da < 0)
 		da += 2 * NSVG_PI;
@@ -2152,7 +2212,7 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 			if (!*item) break;
 			if (nsvg__isnum(item[0])) {
 				if (nargs < 10)
-					args[nargs++] = (float)atof(item);
+					args[nargs++] = (float)nsvg__atof(item);
 				if (nargs >= rargs) {
 					switch (cmd) {
 						case 'm':
@@ -2409,7 +2469,7 @@ static void nsvg__parsePoly(NSVGparser* p, const char** attr, int closeFlag)
 				nargs = 0;
 				while (*s) {
 					s = nsvg__getNextPathItem(s, item);
-					args[nargs++] = (float)atof(item);
+					args[nargs++] = (float)nsvg__atof(item);
 					if (nargs >= 2) {
 						if (npts == 0)
 							nsvg__moveTo(p, args[0], args[1]);
