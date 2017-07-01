@@ -1110,7 +1110,7 @@ static double nsvg__atof(const char* s)
 			// Parse digit sequence
 			fracPart = strtoll(cur, &end, 10);
 			if (cur != end) {
-				res += (double)fracPart / pow(10.0, (double)(end - cur)) * sign;
+				res += (double)fracPart / pow(10.0, (double)(end - cur));
 				hasFracPart = 1;
 				cur = end;
 			}
