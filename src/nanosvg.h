@@ -795,7 +795,6 @@ static float nsvg__convertToPixels(NSVGparser* p, NSVGcoordinate c, float orig, 
 		case NSVG_UNITS_PERCENT:	return orig + c.value / 100.0f * length;
 		default:					return c.value;
 	}
-	return c.value;
 }
 
 static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
@@ -939,7 +938,7 @@ static void nsvg__addShape(NSVGparser* p)
 		return;
 
 	shape = (NSVGshape*)malloc(sizeof(NSVGshape));
-	if (shape == NULL) goto error;
+	if (shape == NULL) return;
 	memset(shape, 0, sizeof(NSVGshape));
 
 	memcpy(shape->id, attr->id, sizeof shape->id);
@@ -1012,11 +1011,6 @@ static void nsvg__addShape(NSVGparser* p)
 	else
 		p->shapesTail->next = shape;
 	p->shapesTail = shape;
-
-	return;
-
-error:
-	if (shape) free(shape);
 }
 
 static void nsvg__addPath(NSVGparser* p, char closed)
@@ -2902,7 +2896,6 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 error:
 	if (fp) fclose(fp);
 	if (data) free(data);
-	if (image) nsvgDelete(image);
 	return NULL;
 }
 
