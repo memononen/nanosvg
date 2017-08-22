@@ -252,7 +252,7 @@ static void nsvg__parseElement(char* s,
 {
 	const char* attr[NSVG_XML_MAX_ATTRIBS];
 	int nattr = 0;
-	char* name;
+	char* tagName;
 	int start = 0;
 	int end = 0;
 	char quote;
@@ -273,7 +273,7 @@ static void nsvg__parseElement(char* s,
 		return;
 
 	// Get tag name
-	name = s;
+	tagName = s;
 	while (*s && !nsvg__isspace(*s)) s++;
 	if (*s) { *s++ = '\0'; }
 
@@ -316,9 +316,9 @@ static void nsvg__parseElement(char* s,
 
 	// Call callbacks.
 	if (start && startelCb)
-		(*startelCb)(ud, name, attr);
+		(*startelCb)(ud, tagName, attr);
 	if (end && endelCb)
-		(*endelCb)(ud, name);
+		(*endelCb)(ud, tagName);
 }
 
 int nsvg__parseXML(char* input,
