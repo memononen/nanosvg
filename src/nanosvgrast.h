@@ -33,7 +33,7 @@ typedef struct NSVGrasterizer NSVGrasterizer;
 
 /* Example Usage:
 	// Load SVG
-	struct SNVGImage* image = nsvgParseFromFile("test.svg.");
+	struct NSVGImage* image = nsvgParseFromFile("test.svg.");
 
 	// Create rasterizer (can be used to render multiple images).
 	struct NSVGrasterizer* rast = nsvgCreateRasterizer();
