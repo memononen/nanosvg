@@ -167,7 +167,10 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 // Important note: changes the string.
 NSVGimage* nsvgParse(char* input, const char* units, float dpi);
 
-// Deletes list of paths.
+// Duplicates a path.
+NSVGpath* nsvgDuplicatePath(NSVGpath* p);
+
+// Deletes an image.
 void nsvgDelete(NSVGimage* image);
 
 #ifdef __cplusplus
@@ -2911,6 +2914,36 @@ error:
 	if (fp) fclose(fp);
 	if (data) free(data);
 	if (image) nsvgDelete(image);
+	return NULL;
+}
+
+NSVGpath* nsvgDuplicatePath(NSVGpath* p)
+{
+	NSVGpath* res = NULL;
+
+	if (p == NULL)
+		return NULL;
+
+	res = (NSVGpath*)malloc(sizeof(NSVGpath));
+	if (res == NULL) goto error;
+	memset(res, 0, sizeof(NSVGpath));
+
+	res->pts = (float*)malloc(p->npts*2*sizeof(float));
+	if (res->pts == NULL) goto error;
+	memcpy(res->pts, p->pts, p->npts * sizeof(float) * 2);
+	res->npts = p->npts;
+
+	memcpy(res->bounds, p->bounds, sizeof(p->bounds));
+
+	res->closed = p->closed;
+
+	return res;
+
+error:
+	if (res != NULL) {
+		free(res->pts);
+		free(res);
+	}
 	return NULL;
 }
 
