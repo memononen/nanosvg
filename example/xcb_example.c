@@ -46,7 +46,7 @@ int main(int argc, char **argv){
       nsvgRasterize(rast, shapes, 0,0,1, data, w, h, w*4);
    }else return -1;
    for(i=0,len=w*h,dp=(unsigned *)data;i<len;i++) //rgba to bgra
-      dp[i]=dp[i]&0xff00ff00|((dp[i]>>16)&0xFF)|((dp[i]<<16)&0xFF0000);
+      dp[i]=(dp[i]&0xff00ff00)|((dp[i]>>16)&0xFF)|((dp[i]<<16)&0xFF0000);
    xcb_create_window(c,depth,win,s->root,0,0,w,h,1,win_class,s->root_visual,mask,values);
    xcb_create_pixmap(c,depth,pixmap,win,w,h);
    xcb_create_gc(c,gc,pixmap,0,NULL);

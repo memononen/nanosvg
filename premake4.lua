@@ -25,11 +25,11 @@ solution "nanosvg"
 
 		configuration "Debug"
 			defines { "DEBUG" }
-			flags { "Symbols", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings", "Symbols" }
 
 		configuration "Release"
 			defines { "NDEBUG" }
-			flags { "Optimize", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings" }
 
 	project "example2"
 		kind "ConsoleApp"
@@ -49,11 +49,11 @@ solution "nanosvg"
 
 		configuration "Debug"
 			defines { "DEBUG" }
-			flags { "Symbols", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings", "Symbols" }
 
 		configuration "Release"
 			defines { "NDEBUG" }
-			flags { "Optimize", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings" }
 
 	project "xcb_example"
 		kind "ConsoleApp"
@@ -67,8 +67,8 @@ solution "nanosvg"
 
 		configuration "Debug"
 			defines { "DEBUG" }
-			flags { "Symbols", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings", "Symbols" }
 
 		configuration "Release"
 			defines { "NDEBUG" }
-			flags { "Optimize", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings" }
