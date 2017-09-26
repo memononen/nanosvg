@@ -1886,6 +1886,8 @@ static void nsvg__parseStyle(NSVGparser* p, const char* str)
 	const char* start;
 	const char* end;
 
+	if (str == NULL) return;
+
 	while (*str) {
 		// Left Trim
 		while(*str && nsvg__isspace(*str)) ++str;
@@ -2850,22 +2852,32 @@ static void nsvg__content(void* ud, const char* s)
 		const char* start = NULL;
 		while (*s) {
 			char c = *s;
-			if (nsvg__isspace(c) || c == '{') {
-				if (state == 1) {
+			if (state == 1) {
+				if (nsvg__isspace(c) || c == '{') {
 					NSVGstyles* next = p->styles;
 					p->styles = (NSVGstyles*)malloc(sizeof(NSVGstyles));
 					p->styles->next = next;
 					p->styles->name = nsvg__strndup(start, (size_t)(s - start));
-					start = s + 1;
-					state = 2;
+					p->styles->description = NULL;
+					if (c == '{') {
+						start = s + 1;
+						state = 3;
+					} else {
+						state = 2;
+					}
 				}
-			} else if (state == 2 && c == '}') {
+			} else if (state == 2 && c == '{') {
+				start = s + 1;
+				state = 3;
+			} else if (state == 3 && c == '}') {
 				p->styles->description = nsvg__strndup(start, (size_t)(s - start));
 				state = 0;
 			}
 			else if (state == 0) {
-				start = s;
-				state = 1;
+				if (!nsvg__isspace(c)) {
+					start = s;
+					state = 1;
+				}
 			}
 			s++;
 		}
