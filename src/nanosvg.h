@@ -2723,6 +2723,8 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 			nsvg__parseGradient(p, attr, NSVG_PAINT_RADIAL_GRADIENT);
 		} else if (strcmp(el, "stop") == 0) {
 			nsvg__parseGradientStop(p, attr);
+		} else if (strcmp(el, "style") == 0) {
+			p->styleFlag = 1;
 		}
 		return;
 	}
