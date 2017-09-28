@@ -339,6 +339,13 @@ int nsvg__parseXML(char* input,
 	int state = NSVG_XML_CONTENT;
 	while (*s) {
 		if (*s == '<' && state == NSVG_XML_CONTENT) {
+			// skip cdata
+			if (strncmp(s, "<![CDATA[", 9) == 0) {
+				s += 9;
+				char* rv = strstr(s, "]]>");
+				if (rv) s = rv + 3;
+				continue;
+			}
 			// Start of a tag
 			*s++ = '\0';
 			nsvg__parseContent(mark, contentCb, ud);
@@ -2850,8 +2857,18 @@ static void nsvg__content(void* ud, const char* s)
 			memset(attr->title + len, 0, lim-len);
 		}
 	} else if (p->styleFlag) {
-		int state = 0;
+		// decrease string to cdata content (if present)
+		char* rv = strstr(s, "<![CDATA[");
+		if (rv) {
+			s = rv + 9;
+			rv = strstr(s, "]]>");
+			if (!rv)
+				return;
+			else *rv = '\0';
+		}
+
 		const char* start = NULL;
+		int state = 0;
 		while (*s) {
 			char c = *s;
 			if (state == 1) {
