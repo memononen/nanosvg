@@ -241,7 +241,7 @@ static NSVG_INLINE float nsvg__maxf(float a, float b) { return a > b ? a : b; }
 #define NSVG_XML_MAX_ATTRIBS 256
 
 static void nsvg__parseContent(char* s,
-							   void (*contentCb)(void* ud, const char* s),
+							   void (*contentCb)(void* ud, char* s),
 							   void* ud)
 {
 	// Trim start white spaces
@@ -331,7 +331,7 @@ static void nsvg__parseElement(char* s,
 int nsvg__parseXML(char* input,
 				   void (*startelCb)(void* ud, const char* el, const char** attr),
 				   void (*endelCb)(void* ud, const char* el),
-				   void (*contentCb)(void* ud, const char* s),
+				   void (*contentCb)(void* ud, char* s),
 				   void* ud)
 {
 	char* s = input;
@@ -2835,7 +2835,7 @@ static char *nsvg__strndup(const char *s, size_t n)
 	return (char *)memcpy(result, s, len);
 }
 
-static void nsvg__content(void* ud, const char* s)
+static void nsvg__content(void* ud, char* s)
 {
 	NSVGparser* p = (NSVGparser*)ud;
 	if (p->titleFlag) {
