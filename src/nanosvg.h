@@ -30,6 +30,13 @@
 #define NANOSVG_H
 
 #ifdef __cplusplus
+#define TO(x) (x)
+#else
+// if using m/c/re/alloc in C, don't cast from void*
+#define TO(x)
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -612,11 +619,11 @@ static void nsvg__curveBounds(float* bounds, float* curve)
 static NSVGparser* nsvg__createParser()
 {
 	NSVGparser* p;
-	p = (NSVGparser*)malloc(sizeof(NSVGparser));
+	p = TO(NSVGparser*)malloc(sizeof(NSVGparser));
 	if (p == NULL) goto error;
 	memset(p, 0, sizeof(NSVGparser));
 
-	p->image = (NSVGimage*)malloc(sizeof(NSVGimage));
+	p->image = TO(NSVGimage*)malloc(sizeof(NSVGimage));
 	if (p->image == NULL) goto error;
 	memset(p->image, 0, sizeof(NSVGimage));
 
@@ -695,7 +702,7 @@ static void nsvg__addPoint(NSVGparser* p, float x, float y)
 {
 	if (p->npts+1 > p->cpts) {
 		p->cpts = p->cpts ? p->cpts*2 : 8;
-		p->pts = (float*)realloc(p->pts, p->cpts*2*sizeof(float));
+		p->pts = TO(float*)realloc(p->pts, p->cpts*2*sizeof(float));
 		if (!p->pts) return;
 	}
 	p->pts[p->npts*2+0] = x;
@@ -834,7 +841,7 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 	}
 	if (stops == NULL) return NULL;
 
-	grad = (NSVGgradient*)malloc(sizeof(NSVGgradient) + sizeof(NSVGgradientStop)*(nstops-1));
+	grad = TO(NSVGgradient*)malloc(sizeof(NSVGgradient) + sizeof(NSVGgradientStop)*(nstops-1));
 	if (grad == NULL) return NULL;
 
 	// The shape width and height.
@@ -938,7 +945,7 @@ static void nsvg__addShape(NSVGparser* p)
 	if (p->plist == NULL)
 		return;
 
-	shape = (NSVGshape*)malloc(sizeof(NSVGshape));
+	shape = TO(NSVGshape*)malloc(sizeof(NSVGshape));
 	if (shape == NULL) goto error;
 	memset(shape, 0, sizeof(NSVGshape));
 
@@ -1033,11 +1040,11 @@ static void nsvg__addPath(NSVGparser* p, char closed)
 	if (closed)
 		nsvg__lineTo(p, p->pts[0], p->pts[1]);
 
-	path = (NSVGpath*)malloc(sizeof(NSVGpath));
+	path = TO(NSVGpath*)malloc(sizeof(NSVGpath));
 	if (path == NULL) goto error;
 	memset(path, 0, sizeof(NSVGpath));
 
-	path->pts = (float*)malloc(p->npts*2*sizeof(float));
+	path->pts = TO(float*)malloc(p->npts*2*sizeof(float));
 	if (path->pts == NULL) goto error;
 	path->closed = closed;
 	path->npts = p->npts;
@@ -2531,7 +2538,7 @@ static void nsvg__parseSVG(NSVGparser* p, const char** attr)
 static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 {
 	int i;
-	NSVGgradientData* grad = (NSVGgradientData*)malloc(sizeof(NSVGgradientData));
+	NSVGgradientData* grad = TO(NSVGgradientData*)malloc(sizeof(NSVGgradientData));
 	if (grad == NULL) return;
 	memset(grad, 0, sizeof(NSVGgradientData));
 	grad->units = NSVG_OBJECT_SPACE;
@@ -2618,7 +2625,7 @@ static void nsvg__parseGradientStop(NSVGparser* p, const char** attr)
 	if (grad == NULL) return;
 
 	grad->nstops++;
-	grad->stops = (NSVGgradientStop*)realloc(grad->stops, sizeof(NSVGgradientStop)*grad->nstops);
+	grad->stops = TO(NSVGgradientStop*)realloc(grad->stops, sizeof(NSVGgradientStop)*grad->nstops);
 	if (grad->stops == NULL) return;
 
 	// Insert
@@ -2889,7 +2896,7 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 	fseek(fp, 0, SEEK_END);
 	size = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	data = (char*)malloc(size+1);
+	data = TO(char*)malloc(size+1);
 	if (data == NULL) goto error;
 	if (fread(data, 1, size, fp) != size) goto error;
 	data[size] = '\0';	// Must be null terminated.
