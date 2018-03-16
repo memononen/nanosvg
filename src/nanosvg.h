@@ -1650,7 +1650,7 @@ static char nsvg__parseLineJoin(const char* str)
 	else if (strcmp(str, "bevel") == 0)
 		return NSVG_JOIN_BEVEL;
 	// TODO: handle inherit.
-	return NSVG_CAP_BUTT;
+	return NSVG_JOIN_MITER;
 }
 
 static char nsvg__parseFillRule(const char* str)
