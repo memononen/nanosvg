@@ -376,6 +376,11 @@ enum NSVGunits {
 	NSVG_UNITS_EX
 };
 
+enum NSVGvisibility {
+	NSVG_VIS_DISPLAY = 1,
+	NSVG_VIS_VISIBLE = 2,
+};
+
 typedef struct NSVGcoordinate {
 	float value;
 	int units;
@@ -635,7 +640,7 @@ static NSVGparser* nsvg__createParser()
 	p->attr[0].miterLimit = 4;
 	p->attr[0].fillRule = NSVG_FILLRULE_NONZERO;
 	p->attr[0].hasFill = 1;
-	p->attr[0].visible = 1;
+	p->attr[0].visible = NSVG_VIS_DISPLAY | NSVG_VIS_VISIBLE;
 
 	return p;
 
@@ -1004,7 +1009,7 @@ static void nsvg__addShape(NSVGparser* p)
 	}
 
 	// Set flags
-	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
+	shape->flags = ((attr->visible & NSVG_VIS_DISPLAY) && (attr->visible & NSVG_VIS_VISIBLE) ? NSVG_FLAGS_VISIBLE : 0x00);
 
 	// Add to tail
 	if (p->image->shapes == NULL)
@@ -1717,9 +1722,14 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		nsvg__parseStyle(p, value);
 	} else if (strcmp(name, "display") == 0) {
 		if (strcmp(value, "none") == 0)
-			attr->visible = 0;
+			attr->visible &= ~NSVG_VIS_DISPLAY;
 		// Don't reset ->visible on display:inline, one display:none hides the whole subtree
-
+	} else if (strcmp(name, "visibility") == 0) {
+		if (strcmp(value, "hidden") == 0) {
+			attr->visible &= ~NSVG_VIS_VISIBLE;
+		} else if (strcmp(value, "visible") == 0) {
+			attr->visible |= NSVG_VIS_VISIBLE;
+		}
 	} else if (strcmp(name, "fill") == 0) {
 		if (strcmp(value, "none") == 0) {
 			attr->hasFill = 0;
