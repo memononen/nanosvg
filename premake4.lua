@@ -5,19 +5,19 @@ solution "nanosvg"
 	location ( "build" )
 	configurations { "Debug", "Release" }
 	platforms {"native", "x64", "x32"}
-  
+
 	project "example1"
 		kind "ConsoleApp"
-		language "C++"
+		language "C"
 		files { "example/example1.c", "example/*.h", "src/*.h" }
 		includedirs { "example", "src" }
 		targetdir("build")
-	 
+
 		configuration { "linux" }
-			 links { "X11","Xrandr", "rt", "GL", "GLU", "pthread", "glfw" }
+			links { "m", "GL", "glfw" }
 
 		configuration { "windows" }
-			 links { "glu32","opengl32", "gdi32", "winmm", "user32" }
+			links { "glu32", "opengl32", "gdi32", "winmm", "user32" }
 
 		configuration { "macosx" }
 			links { "glfw3" }
@@ -25,32 +25,50 @@ solution "nanosvg"
 
 		configuration "Debug"
 			defines { "DEBUG" }
-			flags { "Symbols", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings", "Symbols" }
 
 		configuration "Release"
 			defines { "NDEBUG" }
-			flags { "Optimize", "ExtraWarnings"}    
+			flags { "Optimize", "ExtraWarnings" }
 
 	project "example2"
 		kind "ConsoleApp"
-		language "C++"
+		language "C"
 		files { "example/example2.c", "example/*.h", "src/*.h" }
 		includedirs { "example", "src" }
 		targetdir("build")
-	 
+
 		configuration { "linux" }
-			 links { "X11","Xrandr", "rt", "pthread" }
+			links { "m" }
 
 		configuration { "windows" }
-			 links { "winmm", "user32" }
+			links { "winmm", "user32" }
 
 		configuration { "macosx" }
 			linkoptions { "-framework Cocoa", "-framework IOKit" }
 
 		configuration "Debug"
 			defines { "DEBUG" }
-			flags { "Symbols", "ExtraWarnings"}
+			flags { "Optimize", "ExtraWarnings", "Symbols" }
 
 		configuration "Release"
 			defines { "NDEBUG" }
-			flags { "Optimize", "ExtraWarnings"}    
+			flags { "Optimize", "ExtraWarnings" }
+
+	project "xcb_example"
+		kind "ConsoleApp"
+		language "C"
+		files { "example/xcb_example.c", "example/*.h", "src/*.h" }
+		includedirs { "example", "src" }
+		targetdir("build")
+
+		configuration { "linux" }
+			links { "m", "xcb", "xcb-image" }
+
+		configuration "Debug"
+			defines { "DEBUG" }
+			flags { "Optimize", "ExtraWarnings", "Symbols" }
+
+		configuration "Release"
+			defines { "NDEBUG" }
+			flags { "Optimize", "ExtraWarnings" }
