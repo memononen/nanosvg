@@ -73,7 +73,8 @@ enum NSVGpaintType {
 	NSVG_PAINT_NONE = 0,
 	NSVG_PAINT_COLOR = 1,
 	NSVG_PAINT_LINEAR_GRADIENT = 2,
-	NSVG_PAINT_RADIAL_GRADIENT = 3
+	NSVG_PAINT_RADIAL_GRADIENT = 3,
+	NSVG_PAINT_REF_GRADIENT = 4
 };
 
 enum NSVGspreadType {
@@ -103,6 +104,11 @@ enum NSVGflags {
 	NSVG_FLAGS_VISIBLE = 0x01
 };
 
+typedef struct NSVGgradientRef {
+	char id[64];
+	float localBounds[4];
+} NSVGgradientRef;
+
 typedef struct NSVGgradientStop {
 	unsigned int color;
 	float offset;
@@ -121,6 +127,7 @@ typedef struct NSVGpaint {
 	union {
 		unsigned int color;
 		NSVGgradient* gradient;
+		NSVGgradientRef* gradientRef;
 	};
 } NSVGpaint;
 
@@ -809,6 +816,16 @@ static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
 	return NULL;
 }
 
+static NSVGgradientRef* nsvg__createGradientRef(const char* id, const float* localBounds)
+{
+	NSVGgradientRef* grad = (NSVGgradientRef*)malloc(sizeof(NSVGgradientRef));
+	if (grad == NULL) return NULL;
+	strncpy(grad->id, id, 63);
+	grad->id[63] = '\0';
+	memcpy(grad->localBounds, localBounds, sizeof(float)*4);
+	return grad;
+}
+
 static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const float* localBounds, char* paintType)
 {
 	NSVGattrib* attr = nsvg__getAttr(p);
@@ -978,13 +995,12 @@ static void nsvg__addShape(NSVGparser* p)
 		shape->fill.color = attr->fillColor;
 		shape->fill.color |= (unsigned int)(attr->fillOpacity*255) << 24;
 	} else if (attr->hasFill == 2) {
+		shape->fill.type = NSVG_PAINT_REF_GRADIENT;
 		float inv[6], localBounds[4];
 		nsvg__xformInverse(inv, attr->xform);
 		nsvg__getLocalBounds(localBounds, shape, inv);
-		shape->fill.gradient = nsvg__createGradient(p, attr->fillGradient, localBounds, &shape->fill.type);
-		if (shape->fill.gradient == NULL) {
-			shape->fill.type = NSVG_PAINT_NONE;
-		}
+		shape->fill.gradientRef = nsvg__createGradientRef(attr->fillGradient, localBounds);
+		if (shape->fill.gradientRef == NULL) goto error;
 	}
 
 	// Set stroke
@@ -995,12 +1011,12 @@ static void nsvg__addShape(NSVGparser* p)
 		shape->stroke.color = attr->strokeColor;
 		shape->stroke.color |= (unsigned int)(attr->strokeOpacity*255) << 24;
 	} else if (attr->hasStroke == 2) {
+		shape->stroke.type = NSVG_PAINT_REF_GRADIENT;
 		float inv[6], localBounds[4];
 		nsvg__xformInverse(inv, attr->xform);
 		nsvg__getLocalBounds(localBounds, shape, inv);
-		shape->stroke.gradient = nsvg__createGradient(p, attr->strokeGradient, localBounds, &shape->stroke.type);
-		if (shape->stroke.gradient == NULL)
-			shape->stroke.type = NSVG_PAINT_NONE;
+		shape->stroke.gradientRef = nsvg__createGradientRef(attr->strokeGradient, localBounds);
+		if (shape->stroke.gradientRef == NULL) goto error;
 	}
 
 	// Set flags
@@ -2722,6 +2738,30 @@ static void nsvg__content(void* ud, const char* s)
 	// empty
 }
 
+static void nsvg__assignGradients(NSVGparser* p)
+{
+	for (NSVGshape* shape = p->image->shapes; shape != NULL; shape = shape->next) {
+		if (shape->fill.type == NSVG_PAINT_REF_GRADIENT) {
+			NSVGgradientRef* ref = shape->fill.gradientRef;
+			shape->fill.gradient = nsvg__createGradient(
+				p, ref->id, ref->localBounds, &shape->fill.type);
+			free(ref);
+			if (shape->fill.gradient == NULL) {
+				shape->fill.type = NSVG_PAINT_NONE;
+			}
+		}
+		if (shape->stroke.type == NSVG_PAINT_REF_GRADIENT) {
+			NSVGgradientRef* ref = shape->stroke.gradientRef;
+			shape->stroke.gradient = nsvg__createGradient(
+				p, ref->id, ref->localBounds, &shape->stroke.type);
+			free(ref);
+			if (shape->stroke.gradient == NULL) {
+				shape->stroke.type = NSVG_PAINT_NONE;
+			}
+		}
+	}
+}
+
 static void nsvg__imageBounds(NSVGparser* p, float* bounds)
 {
 	NSVGshape* shape;
@@ -2865,6 +2905,8 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	p->dpi = dpi;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
+
+	nsvg__assignGradients(p);
 
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
