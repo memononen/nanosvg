@@ -135,6 +135,14 @@ typedef struct NSVGpath
 	struct NSVGpath* next;		// Pointer to next path, or NULL if last element.
 } NSVGpath;
 
+typedef unsigned char NSVGclipPathIndex;
+
+typedef struct NSVGclip
+{
+	NSVGclipPathIndex* index;	// Array of clip path indices (of related NSVGimage).
+	NSVGclipPathIndex count;	// Number of clip paths in this set.
+} NSVGclip;
+
 typedef struct NSVGshape
 {
 	char id[64];				// Optional 'id' attr of the shape or its group
@@ -152,14 +160,24 @@ typedef struct NSVGshape
 	unsigned char flags;		// Logical or of NSVG_FLAGS_* flags
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
 	NSVGpath* paths;			// Linked list of paths in the image.
+	NSVGclip clip;				// Describes all clip paths to be applied to this shape.
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
 } NSVGshape;
+
+typedef struct NSVGclipPath
+{
+	char id[64];				// Unique id of this clip path (from SVG).
+	NSVGclipPathIndex index;	// Unique internal index of this clip path.
+	NSVGshape* shapes;			// Linked list of shapes in this clip path.
+	struct NSVGclipPath* next;	// Pointer to next clip path or NULL.
+} NSVGclipPath;
 
 typedef struct NSVGimage
 {
 	float width;				// Width of the image.
 	float height;				// Height of the image.
 	NSVGshape* shapes;			// Linked list of shapes in the image.
+	NSVGclipPath* clipPaths;	// Linked list of clip paths in the image.
 } NSVGimage;
 
 // Parses SVG file from a file, returns SVG image as paths.
@@ -362,6 +380,7 @@ int nsvg__parseXML(char* input,
 /* Simple SVG parser. */
 
 #define NSVG_MAX_ATTR 128
+#define NSVG_MAX_CLIP_PATHS 255 // also note NSVGclipPathIndex
 
 enum NSVGgradientUnits {
 	NSVG_USER_SPACE = 0,
@@ -439,6 +458,7 @@ typedef struct NSVGattrib
 	char hasFill;
 	char hasStroke;
 	char visible;
+	NSVGclipPathIndex clipPathCount;
 } NSVGattrib;
 
 typedef struct NSVGparser
@@ -457,6 +477,8 @@ typedef struct NSVGparser
 	float dpi;
 	char pathFlag;
 	char defsFlag;
+	NSVGclipPath* clipPath;
+	NSVGclipPathIndex clipPathStack[NSVG_MAX_CLIP_PATHS];
 } NSVGparser;
 
 static void nsvg__xformIdentity(float* t)
@@ -965,6 +987,15 @@ static void nsvg__addShape(NSVGparser* p)
 	shape->paths = p->plist;
 	p->plist = NULL;
 
+	shape->clip.count = attr->clipPathCount;
+	if (shape->clip.count > 0) {
+		shape->clip.index = (NSVGclipPathIndex*)malloc(
+			attr->clipPathCount * sizeof(NSVGclipPathIndex));
+		if (shape->clip.index == NULL) goto error;
+		memcpy(shape->clip.index, p->clipPathStack,
+			attr->clipPathCount * sizeof(NSVGclipPathIndex));
+	}
+
 	// Calculate shape bounds
 	shape->bounds[0] = shape->paths->bounds[0];
 	shape->bounds[1] = shape->paths->bounds[1];
@@ -1013,17 +1044,28 @@ static void nsvg__addShape(NSVGparser* p)
 	// Set flags
 	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
 
-	// Add to tail
-	if (p->image->shapes == NULL)
-		p->image->shapes = shape;
-	else
-		p->shapesTail->next = shape;
-	p->shapesTail = shape;
+	// Add shape
+	if (p->clipPath != NULL) {
+		shape->next = p->clipPath->shapes;
+		p->clipPath->shapes = shape;
+	} else {
+		// Add to tail
+		if (p->image->shapes == NULL)
+			p->image->shapes = shape;
+		else
+			p->shapesTail->next = shape;
+		p->shapesTail = shape;
+	}
 
 	return;
 
 error:
-	if (shape) free(shape);
+	if (shape) {
+		if (shape->clip.index) {
+			free(shape->clip.index);
+		}
+		free(shape);
+	}
 }
 
 static void nsvg__addPath(NSVGparser* p, char closed)
@@ -1710,6 +1752,36 @@ static int nsvg__parseStrokeDashArray(NSVGparser* p, const char* str, float* str
 	return count;
 }
 
+static NSVGclipPath* nsvg__createClipPath(const char* name, int index)
+{
+	NSVGclipPath* clipPath = (NSVGclipPath*)malloc(sizeof(NSVGclipPath));
+	if (clipPath == NULL) return NULL;
+	memset(clipPath, 0, sizeof(NSVGclipPath));
+	strncpy(clipPath->id, name, 63);
+	clipPath->id[63] = '\0';
+	clipPath->index = index;
+	return clipPath;
+}
+
+static NSVGclipPath* nsvg__findClipPath(NSVGparser* p, const char* name)
+{
+	int i = 0;
+	NSVGclipPath** link;
+
+	link = &p->image->clipPaths;
+	while (*link != NULL) {
+		if (strcmp((*link)->id, name) == 0) {
+			break;
+		}
+		link = &(*link)->next;
+		i++;
+	}
+	if (*link == NULL) {
+		*link = nsvg__createClipPath(name, i);
+	}
+	return *link;
+}
+
 static void nsvg__parseStyle(NSVGparser* p, const char* str);
 
 static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
@@ -1770,6 +1842,13 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 	} else if (strcmp(name, "transform") == 0) {
 		nsvg__parseTransform(xform, value);
 		nsvg__xformPremultiply(attr->xform, xform);
+	} else if (strcmp(name, "clip-path") == 0) {
+		if (strncmp(value, "url(", 4) == 0 && attr->clipPathCount < NSVG_MAX_CLIP_PATHS) {
+			char clipName[64];
+			nsvg__parseUrl(clipName, value);
+			NSVGclipPath *clipPath = nsvg__findClipPath(p, clipName);
+			p->clipPathStack[attr->clipPathCount++] = clipPath->index;
+		}
 	} else if (strcmp(name, "stop-color") == 0) {
 		attr->stopColor = nsvg__parseColor(value);
 	} else if (strcmp(name, "stop-opacity") == 0) {
@@ -2719,6 +2798,15 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		p->defsFlag = 1;
 	} else if (strcmp(el, "svg") == 0) {
 		nsvg__parseSVG(p, attr);
+	} else if (strcmp(el, "clipPath") == 0) {
+		int i;
+		nsvg__pushAttr(p);
+		for (i = 0; attr[i]; i += 2) {
+			if (strcmp(attr[i], "id") == 0) {
+				p->clipPath = nsvg__findClipPath(p, attr[i+1]);
+				break;
+			}
+		}
 	}
 }
 
@@ -2732,6 +2820,18 @@ static void nsvg__endElement(void* ud, const char* el)
 		p->pathFlag = 0;
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 0;
+	} else if (strcmp(el, "clipPath") == 0) {
+		if (p->clipPath != NULL) {
+			NSVGshape* shape = p->clipPath->shapes;
+			while (shape != NULL) {
+				shape->fill.type = NSVG_PAINT_COLOR;
+				shape->stroke.type = NSVG_PAINT_NONE;
+				shape = shape->next;
+			}
+			p->clipPath = NULL;
+		}
+
+		nsvg__popAttr(p);
 	}
 }
 
@@ -2782,13 +2882,12 @@ static void nsvg__scaleGradient(NSVGgradient* grad, float tx, float ty, float sx
 	nsvg__xformMultiply (grad->xform, t);
 }
 
+static void nsvg__transformShapes(NSVGshape* shapes, float tx, float ty, float sx, float sy);
+
 static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 {
-	NSVGshape* shape;
-	NSVGpath* path;
-	float tx, ty, sx, sy, us, bounds[4], t[6], avgs;
-	int i;
-	float* pt;
+	NSVGclipPath *clipPath;
+	float tx, ty, sx, sy, us, bounds[4];
 
 	// Guess image size if not set completely.
 	nsvg__imageBounds(p, bounds);
@@ -2837,8 +2936,25 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 	// Transform
 	sx *= us;
 	sy *= us;
+	nsvg__transformShapes(p->image->shapes, tx, ty, sx, sy);
+
+	clipPath = p->image->clipPaths;
+	while (clipPath != NULL) {
+		nsvg__transformShapes(clipPath->shapes, tx, ty, sx, sy);
+		clipPath = clipPath->next;
+	}
+}
+
+static void nsvg__transformShapes(NSVGshape* shapes, float tx, float ty, float sx, float sy)
+{
+	NSVGshape* shape;
+	NSVGpath* path;
+	float avgs, bounds[4], t[6];
+	int i;
+	float* pt;
+
 	avgs = (sx+sy) / 2.0f;
-	for (shape = p->image->shapes; shape != NULL; shape = shape->next) {
+	for (shape = shapes; shape != NULL; shape = shape->next) {
 		shape->bounds[0] = (shape->bounds[0] + tx) * sx;
 		shape->bounds[1] = (shape->bounds[1] + ty) * sy;
 		shape->bounds[2] = (shape->bounds[2] + tx) * sx;
@@ -2956,19 +3072,39 @@ error:
     return NULL;
 }
 
-void nsvgDelete(NSVGimage* image)
+
+void nsvg__deleteShapes(NSVGshape* shape)
 {
-	NSVGshape *snext, *shape;
-	if (image == NULL) return;
-	shape = image->shapes;
+	NSVGshape *snext;
 	while (shape != NULL) {
 		snext = shape->next;
 		nsvg__deletePaths(shape->paths);
 		nsvg__deletePaint(&shape->fill);
 		nsvg__deletePaint(&shape->stroke);
+		if (shape->clip.index) {
+			free(shape->clip.index);
+		}
 		free(shape);
 		shape = snext;
 	}
+}
+
+void nsvg__deleteClipPaths(NSVGclipPath* path)
+{
+	NSVGclipPath *pnext;
+	while (path != NULL) {
+		pnext = path->next;
+		nsvg__deleteShapes(path->shapes);
+		free(path);
+		path = pnext;
+	}
+}
+
+void nsvgDelete(NSVGimage* image)
+{
+	if (image == NULL) return;
+	nsvg__deleteShapes(image->shapes);
+	nsvg__deleteClipPaths(image->clipPaths);
 	free(image);
 }
 

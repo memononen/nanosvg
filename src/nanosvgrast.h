@@ -118,6 +118,10 @@ typedef struct NSVGcachedPaint {
 	unsigned int colors[256];
 } NSVGcachedPaint;
 
+typedef void (*NSVGscanlineFunction)(
+	unsigned char* dst, int count, unsigned char* cover, int x, int y,
+	float tx, float ty, float scale, NSVGcachedPaint* cache);
+
 struct NSVGrasterizer
 {
 	float px, py;
@@ -143,6 +147,11 @@ struct NSVGrasterizer
 
 	unsigned char* scanline;
 	int cscanline;
+	NSVGscanlineFunction fscanline;
+
+	unsigned char* stencil;
+	int stencilSize;
+	int stencilStride;
 
 	unsigned char* bitmap;
 	int width, height, stride;
@@ -181,6 +190,7 @@ void nsvgDeleteRasterizer(NSVGrasterizer* r)
 	if (r->points) free(r->points);
 	if (r->points2) free(r->points2);
 	if (r->scanline) free(r->scanline);
+	if (r->stencil) free(r->stencil);
 
 	free(r);
 }
@@ -984,9 +994,21 @@ static inline int nsvg__div255(int x)
     return ((x+1) * 257) >> 16;
 }
 
-static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* cover, int x, int y,
-								float tx, float ty, float scale, NSVGcachedPaint* cache)
+static void nsvg__scanlineBit(
+	unsigned char* row, int count, unsigned char* cover, int x, int y,
+	float tx, float ty, float scale, NSVGcachedPaint* cache)
 {
+	int x1 = x + count;
+	for (; x < x1; x++) {
+		row[x / 8] |= 1 << (x % 8);
+	}
+}
+
+static void nsvg__scanlineSolid(
+	unsigned char* row, int count, unsigned char* cover, int x, int y,
+	float tx, float ty, float scale, NSVGcachedPaint* cache)
+{
+	unsigned char* dst = row + x*4;
 
 	if (cache->type == NSVG_PAINT_COLOR) {
 		int i, cr, cg, cb, ca;
@@ -1112,7 +1134,9 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 	}
 }
 
-static void nsvg__rasterizeSortedEdges(NSVGrasterizer *r, float tx, float ty, float scale, NSVGcachedPaint* cache, char fillRule)
+static void nsvg__rasterizeSortedEdges(
+	NSVGrasterizer *r, float tx, float ty, float scale,
+	NSVGcachedPaint* cache, char fillRule, NSVGclip* clip)
 {
 	NSVGactiveEdge *active = NULL;
 	int y, s;
@@ -1194,7 +1218,17 @@ static void nsvg__rasterizeSortedEdges(NSVGrasterizer *r, float tx, float ty, fl
 		if (xmin < 0) xmin = 0;
 		if (xmax > r->width-1) xmax = r->width-1;
 		if (xmin <= xmax) {
-			nsvg__scanlineSolid(&r->bitmap[y * r->stride] + xmin*4, xmax-xmin+1, &r->scanline[xmin], xmin, y, tx,ty, scale, cache);
+			int i, j;
+			for (i = 0; i < clip->count; i++) {
+				unsigned char* stencil = &r->stencil[r->stencilSize * clip->index[i] + y * r->stencilStride];
+				for (j = xmin; j <= xmax; j++) {
+					if (((stencil[j / 8] >> (j % 8)) & 1) == 0) {
+						r->scanline[j] = 0;
+					}
+				}
+			}
+
+			r->fscanline(&r->bitmap[y * r->stride], xmax-xmin+1, &r->scanline[xmin], xmin, y, tx,ty, scale, cache);
 		}
 	}
 
@@ -1362,9 +1396,11 @@ static void dumpEdges(NSVGrasterizer* r, const char* name)
 }
 */
 
-void nsvgRasterize(NSVGrasterizer* r,
-				   NSVGimage* image, float tx, float ty, float scale,
-				   unsigned char* dst, int w, int h, int stride)
+static void nsvg__rasterizeShapes(
+	NSVGrasterizer* r,
+	NSVGshape* shapes, float tx, float ty, float scale,
+	unsigned char* dst, int w, int h, int stride,
+	NSVGscanlineFunction fscanline)
 {
 	NSVGshape *shape = NULL;
 	NSVGedge *e = NULL;
@@ -1375,6 +1411,7 @@ void nsvgRasterize(NSVGrasterizer* r,
 	r->width = w;
 	r->height = h;
 	r->stride = stride;
+	r->fscanline = fscanline;
 
 	if (w > r->cscanline) {
 		r->cscanline = w;
@@ -1382,10 +1419,7 @@ void nsvgRasterize(NSVGrasterizer* r,
 		if (r->scanline == NULL) return;
 	}
 
-	for (i = 0; i < h; i++)
-		memset(&dst[i*stride], 0, w*4);
-
-	for (shape = image->shapes; shape != NULL; shape = shape->next) {
+	for (shape = shapes; shape != NULL; shape = shape->next) {
 		if (!(shape->flags & NSVG_FLAGS_VISIBLE))
 			continue;
 
@@ -1411,7 +1445,7 @@ void nsvgRasterize(NSVGrasterizer* r,
 			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
 			nsvg__initPaint(&cache, &shape->fill, shape->opacity);
 
-			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, shape->fillRule);
+			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, shape->fillRule, &shape->clip);
 		}
 		if (shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * scale) > 0.01f) {
 			nsvg__resetPool(r);
@@ -1437,16 +1471,67 @@ void nsvgRasterize(NSVGrasterizer* r,
 			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
 			nsvg__initPaint(&cache, &shape->stroke, shape->opacity);
 
-			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, NSVG_FILLRULE_NONZERO);
+			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, NSVG_FILLRULE_NONZERO, &shape->clip);
 		}
 	}
-
-	nsvg__unpremultiplyAlpha(dst, w, h, stride);
 
 	r->bitmap = NULL;
 	r->width = 0;
 	r->height = 0;
 	r->stride = 0;
+	r->fscanline = NULL;
+}
+
+void nsvg__rasterizeClipPaths(
+	NSVGrasterizer* r, NSVGimage* image, int w, int h,
+	float tx, float ty, float scale)
+{
+	NSVGclipPath* clipPath;
+	int clipPathCount = 0;
+
+	clipPath = image->clipPaths;
+	if (clipPath == NULL) {
+		r->stencil = NULL;
+		return;
+	}
+
+	while (clipPath != NULL) {
+		clipPathCount++;
+		clipPath = clipPath->next;
+	}
+
+	r->stencilStride = w / 8 + (w % 8 != 0 ? 1 : 0);
+	r->stencilSize = h * r->stencilStride;
+	r->stencil = (unsigned char*)realloc(
+		r->stencil, r->stencilSize * clipPathCount);
+	if (r->stencil == NULL) return;
+	memset(r->stencil, 0, r->stencilSize * clipPathCount);
+
+	clipPath = image->clipPaths;
+	while (clipPath != NULL) {
+		nsvg__rasterizeShapes(r, clipPath->shapes, tx, ty, scale,
+			&r->stencil[r->stencilSize * clipPath->index],
+			w, h, r->stencilStride, nsvg__scanlineBit);
+		clipPath = clipPath->next;
+	}
+}
+
+void nsvgRasterize(
+	NSVGrasterizer* r,
+	NSVGimage* image, float tx, float ty, float scale,
+	unsigned char* dst, int w, int h, int stride)
+{
+	int i;
+
+	for (i = 0; i < h; i++)
+		memset(&dst[i*stride], 0, w*4);
+
+	nsvg__rasterizeClipPaths(r, image, w, h, tx, ty, scale);
+
+	nsvg__rasterizeShapes(r, image->shapes, tx, ty, scale,
+		dst, w, h, stride, nsvg__scanlineSolid);
+
+	nsvg__unpremultiplyAlpha(dst, w, h, stride);
 }
 
 #endif
