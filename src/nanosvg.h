@@ -844,6 +844,7 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, NSVGshape* shape, NSVGg
 	float ox, oy, sw, sh, sl;
 	int nstops = 0;
 
+	if (link == NULL) return NULL;
 	data = nsvg__findGradientData(p, link->id);
 	if (data == NULL) return NULL;
 
@@ -1009,7 +1010,10 @@ static void nsvg__addShape(NSVGparser* p)
 	} else if (attr->hasFill == 2) {
 		shape->fill.type = NSVG_PAINT_GRADIENT_LINK;
 		shape->fill.gradientLink = nsvg__createGradientLink(attr->fillGradient, attr->xform);
-		if (shape->fill.gradientLink == NULL) goto error;
+		if (shape->fill.gradientLink == NULL) {
+			shape->fill.type = NSVG_PAINT_NONE;
+			goto error;
+		}
 	}
 
 	// Set stroke
@@ -1022,7 +1026,10 @@ static void nsvg__addShape(NSVGparser* p)
 	} else if (attr->hasStroke == 2) {
 		shape->stroke.type = NSVG_PAINT_GRADIENT_LINK;
 		shape->stroke.gradientLink = nsvg__createGradientLink(attr->strokeGradient, attr->xform);
-		if (shape->stroke.gradientLink == NULL) goto error;
+		if (shape->stroke.gradientLink == NULL) {
+			shape->stroke.type = NSVG_PAINT_NONE;
+			goto error;
+		}
 	}
 
 	// Set flags
@@ -2764,7 +2771,9 @@ static void nsvg__assignGradients(NSVGparser* p)
 			NSVGgradientLink* link = shape->fill.gradientLink;
 			shape->fill.gradient = nsvg__createGradient(
 				p, shape, link, &shape->fill.type);
-			free(link);
+			if (link != NULL) {
+				free(link);
+			}
 			if (shape->fill.gradient == NULL) {
 				shape->fill.type = NSVG_PAINT_NONE;
 			}
@@ -2773,7 +2782,9 @@ static void nsvg__assignGradients(NSVGparser* p)
 			NSVGgradientLink* link = shape->stroke.gradientLink;
 			shape->stroke.gradient = nsvg__createGradient(
 				p, shape, link, &shape->stroke.type);
-			free(link);
+			if (link != NULL) {
+				free(link);
+			}
 			if (shape->stroke.gradient == NULL) {
 				shape->stroke.type = NSVG_PAINT_NONE;
 			}
