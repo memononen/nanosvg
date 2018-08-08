@@ -29,8 +29,10 @@
 #ifndef NANOSVG_H
 #define NANOSVG_H
 
+#ifndef NANOSVG_CPLUSPLUS
 #ifdef __cplusplus
 extern "C" {
+#endif
 #endif
 
 // NanoSVG is a simple stupid single-header-file SVG parse. The output of the parser is a list of cubic bezier shapes.
@@ -173,8 +175,10 @@ NSVGpath* nsvgDuplicatePath(NSVGpath* p);
 // Deletes an image.
 void nsvgDelete(NSVGimage* image);
 
+#ifndef NANOSVG_CPLUSPLUS
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 #endif // NANOSVG_H
