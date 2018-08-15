@@ -2701,6 +2701,7 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 1;
 	} else if (strcmp(el, "svg") == 0) {
+		nsvg__pushAttr(p);
 		nsvg__parseSVG(p, attr);
 	}
 }
@@ -2715,7 +2716,9 @@ static void nsvg__endElement(void* ud, const char* el)
 		p->pathFlag = 0;
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 0;
-	}
+	} else if (strcmp(el, "svg") == 0) {
+		nsvg__popAttr(p);
+    }
 }
 
 static void nsvg__content(void* ud, const char* s)
