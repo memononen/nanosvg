@@ -1777,6 +1777,12 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 	} else if (strcmp(name, "id") == 0) {
 		strncpy(attr->id, value, 63);
 		attr->id[63] = '\0';
+	} else if (strcmp(name, "x") == 0) {
+		nsvg__xformSetTranslation(xform, (float)nsvg__atof(value), 0);
+		nsvg__xformPremultiply(attr->xform, xform);
+	} else if (strcmp(name, "y") == 0) {
+		nsvg__xformSetTranslation(xform, 0, (float)nsvg__atof(value));
+		nsvg__xformPremultiply(attr->xform, xform);
 	} else {
 		return 0;
 	}
