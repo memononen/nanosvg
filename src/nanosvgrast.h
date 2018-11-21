@@ -956,26 +956,42 @@ static float nsvg__clampf(float a, float mn, float mx) { return a < mn ? mn : (a
 
 static unsigned int nsvg__RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 {
-	return (r) | (g << 8) | (b << 16) | (a << 24);
+  return (r<<16) | (g << 8) | (b << 0) | (a << 24);
 }
 
+#define nsvg__color2RGBA( color, r, g, b, a)   do { \
+r = (color >> 16)&0xff; \
+g = (color >> 8)&0xff; \
+b = (color >> 0)&0xff; \
+a = (color >> 24)&0xff; } while(0)
 static unsigned int nsvg__lerpRGBA(unsigned int c0, unsigned int c1, float u)
 {
 	int iu = (int)(nsvg__clampf(u, 0.0f, 1.0f) * 256.0f);
-	int r = (((c0) & 0xff)*(256-iu) + (((c1) & 0xff)*iu)) >> 8;
-	int g = (((c0>>8) & 0xff)*(256-iu) + (((c1>>8) & 0xff)*iu)) >> 8;
-	int b = (((c0>>16) & 0xff)*(256-iu) + (((c1>>16) & 0xff)*iu)) >> 8;
-	int a = (((c0>>24) & 0xff)*(256-iu) + (((c1>>24) & 0xff)*iu)) >> 8;
+	//int r = (((c0) & 0xff)*(256-iu) + (((c1) & 0xff)*iu)) >> 8;
+	//int g = (((c0>>8) & 0xff)*(256-iu) + (((c1>>8) & 0xff)*iu)) >> 8;
+	//int b = (((c0>>16) & 0xff)*(256-iu) + (((c1>>16) & 0xff)*iu)) >> 8;
+	//int a = (((c0>>24) & 0xff)*(256-iu) + (((c1>>24) & 0xff)*iu)) >> 8;
+  unsigned int r0, g0, b0, a0;
+  unsigned int r1, g1, b1, a1;
+  nsvg__color2RGBA(c0, r0, g0, b0, a0);
+  nsvg__color2RGBA(c1, r1, g1, b1, a1);
+  int r = (r0*(256-iu) + (r1*iu)) >> 8;
+  int g = (g0*(256-iu) + (g1*iu)) >> 8;
+  int b = (b0*(256-iu) + (b1*iu)) >> 8;
+  int a = (a0*(256-iu) + (a1*iu)) >> 8;
 	return nsvg__RGBA((unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a);
 }
 
 static unsigned int nsvg__applyOpacity(unsigned int c, float u)
 {
 	int iu = (int)(nsvg__clampf(u, 0.0f, 1.0f) * 256.0f);
-	int r = (c) & 0xff;
-	int g = (c>>8) & 0xff;
-	int b = (c>>16) & 0xff;
-	int a = (((c>>24) & 0xff)*iu) >> 8;
+	//int r = (c) & 0xff;
+	//int g = (c>>8) & 0xff;
+	//int b = (c>>16) & 0xff;
+	//int a = (((c>>24) & 0xff)*iu) >> 8;
+  int r, g, b, a;
+  nsvg__color2RGBA(c, r, g, b, a);
+  a = (a*iu) >> 8;
 	return nsvg__RGBA((unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a);
 }
 
@@ -990,10 +1006,11 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 
 	if (cache->type == NSVG_PAINT_COLOR) {
 		int i, cr, cg, cb, ca;
-		cr = cache->colors[0] & 0xff;
-		cg = (cache->colors[0] >> 8) & 0xff;
-		cb = (cache->colors[0] >> 16) & 0xff;
-		ca = (cache->colors[0] >> 24) & 0xff;
+		//cr = cache->colors[0] & 0xff;
+		//cg = (cache->colors[0] >> 8) & 0xff;
+		//cb = (cache->colors[0] >> 16) & 0xff;
+		//ca = (cache->colors[0] >> 24) & 0xff;
+    nsvg__color2RGBA(cache->colors[0], cr, cg, cb, ca);
 
 		for (i = 0; i < count; i++) {
 			int r,g,b;
@@ -1034,10 +1051,11 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 			int r,g,b,a,ia;
 			gy = fx*t[1] + fy*t[3] + t[5];
 			c = cache->colors[(int)nsvg__clampf(gy*255.0f, 0, 255.0f)];
-			cr = (c) & 0xff;
-			cg = (c >> 8) & 0xff;
-			cb = (c >> 16) & 0xff;
-			ca = (c >> 24) & 0xff;
+			//cr = (c) & 0xff;
+			//cg = (c >> 8) & 0xff;
+			//cb = (c >> 16) & 0xff;
+			//ca = (c >> 24) & 0xff;
+      nsvg__color2RGBA(c, cr, cg, cb, ca);
 
 			a = nsvg__div255((int)cover[0] * ca);
 			ia = 255 - a;
@@ -1081,10 +1099,11 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 			gy = fx*t[1] + fy*t[3] + t[5];
 			gd = sqrtf(gx*gx + gy*gy);
 			c = cache->colors[(int)nsvg__clampf(gd*255.0f, 0, 255.0f)];
-			cr = (c) & 0xff;
-			cg = (c >> 8) & 0xff;
-			cb = (c >> 16) & 0xff;
-			ca = (c >> 24) & 0xff;
+			//cr = (c) & 0xff;
+			//cg = (c >> 8) & 0xff;
+			//cb = (c >> 16) & 0xff;
+			//ca = (c >> 24) & 0xff;
+      nsvg__color2RGBA(c, cr, cg, cb, ca);
 
 			a = nsvg__div255((int)cover[0] * ca);
 			ia = 255 - a;

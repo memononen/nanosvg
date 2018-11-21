@@ -139,7 +139,11 @@ typedef struct NSVGshape
 {
 	char id[64];				// Optional 'id' attr of the shape or its group
 	NSVGpaint fill;				// Fill paint
+  char  _fill_id[64];
+  float _fill_xform[6];
 	NSVGpaint stroke;			// Stroke paint
+  char _stroke_id[64];
+  float _stroke_xform[6];
 	float opacity;				// Opacity of the shape.
 	float strokeWidth;			// Stroke width (scaled).
 	float strokeDashOffset;		// Stroke dash offset (scaled).
@@ -200,7 +204,7 @@ void nsvgDelete(NSVGimage* image);
 #define NSVG_ALIGN_SLICE 2
 
 #define NSVG_NOTUSED(v) do { (void)(1 ? (void)0 : ( (void)(v) ) ); } while(0)
-#define NSVG_RGB(r, g, b) (((unsigned int)r) | ((unsigned int)g << 8) | ((unsigned int)b << 16))
+#define NSVG_RGB(r, g, b) (((unsigned int)r<<16) | ((unsigned int)g << 8) | ((unsigned int)b))
 
 #ifdef _MSC_VER
 	#pragma warning (disable: 4996) // Switch off security warnings
@@ -934,6 +938,31 @@ static void nsvg__getLocalBounds(float* bounds, NSVGshape *shape, float* xform)
 	}
 }
 
+static void nsvg__addAllGradients(NSVGparser* p) 
+{
+  if (!p) return;
+  if (!p->image) return;
+  NSVGshape* shape;
+  for (shape = p->image->shapes; shape != NULL; shape = shape->next) {
+    if (shape->fill.type == 2) {
+      float inv[6], localBounds[4];
+      nsvg__xformInverse(inv, shape->_fill_xform);
+      nsvg__getLocalBounds(localBounds, shape, inv);
+      shape->fill.gradient = nsvg__createGradient(p, shape->_fill_id, localBounds, &shape->fill.type);
+      if (shape->fill.gradient == NULL) {
+      	shape->fill.type = NSVG_PAINT_NONE;
+      }
+    } 
+    if (shape->stroke.type == 2) {
+      float inv[6], localBounds[4];
+      nsvg__xformInverse(inv, shape->_stroke_xform);
+      nsvg__getLocalBounds(localBounds, shape, inv);
+      shape->stroke.gradient = nsvg__createGradient(p, shape->_stroke_id, localBounds, &shape->stroke.type);
+      if (shape->stroke.gradient == NULL)
+      	shape->stroke.type = NSVG_PAINT_NONE;
+    }
+  }
+}
 static void nsvg__addShape(NSVGparser* p)
 {
 	NSVGattrib* attr = nsvg__getAttr(p);
@@ -985,13 +1014,17 @@ static void nsvg__addShape(NSVGparser* p)
 		shape->fill.color = attr->fillColor;
 		shape->fill.color |= (unsigned int)(attr->fillOpacity*255) << 24;
 	} else if (attr->hasFill == 2) {
-		float inv[6], localBounds[4];
-		nsvg__xformInverse(inv, attr->xform);
-		nsvg__getLocalBounds(localBounds, shape, inv);
-		shape->fill.gradient = nsvg__createGradient(p, attr->fillGradient, localBounds, &shape->fill.type);
-		if (shape->fill.gradient == NULL) {
-			shape->fill.type = NSVG_PAINT_NONE;
-		}
+    // adjust Gradient parse process, now support <defs> post definition
+    shape->fill.type = 2;
+    strcpy(shape->_fill_id, attr->fillGradient);
+    memcpy(shape->_fill_xform, attr->xform, sizeof(float)*6);
+    //float inv[6], localBounds[4];
+    //nsvg__xformInverse(inv, attr->xform);
+    //nsvg__getLocalBounds(localBounds, shape, inv);
+		//shape->fill.gradient = nsvg__createGradient(p, attr->fillGradient, localBounds, &shape->fill.type);
+		//if (shape->fill.gradient == NULL) {
+		//	shape->fill.type = NSVG_PAINT_NONE;
+		//}
 	}
 
 	// Set stroke
@@ -1002,12 +1035,16 @@ static void nsvg__addShape(NSVGparser* p)
 		shape->stroke.color = attr->strokeColor;
 		shape->stroke.color |= (unsigned int)(attr->strokeOpacity*255) << 24;
 	} else if (attr->hasStroke == 2) {
-		float inv[6], localBounds[4];
-		nsvg__xformInverse(inv, attr->xform);
-		nsvg__getLocalBounds(localBounds, shape, inv);
-		shape->stroke.gradient = nsvg__createGradient(p, attr->strokeGradient, localBounds, &shape->stroke.type);
-		if (shape->stroke.gradient == NULL)
-			shape->stroke.type = NSVG_PAINT_NONE;
+    // adjust Gradient parse process, now support <defs> post definition
+    shape->fill.type = 2;
+    strcpy(shape->_stroke_id, attr->strokeGradient);
+    memcpy(shape->_stroke_xform, attr->xform, sizeof(float)*6);
+    //float inv[6], localBounds[4];
+    //nsvg__xformInverse(inv, attr->xform);
+    //nsvg__getLocalBounds(localBounds, shape, inv);
+		//shape->stroke.gradient = nsvg__createGradient(p, attr->strokeGradient, localBounds, &shape->stroke.type);
+		//if (shape->stroke.gradient == NULL)
+		//	shape->stroke.type = NSVG_PAINT_NONE;
 	}
 
 	// Set flags
@@ -1102,7 +1139,7 @@ static double nsvg__atof(const char* s)
 	// Parse integer part
 	if (nsvg__isdigit(*cur)) {
 		// Parse digit sequence
-		intPart = (double)strtoll(cur, &end, 10);
+    intPart = (__int64)(0.5+(double)strtoll(cur, &end, 10));
 		if (cur != end) {
 			res = (double)intPart;
 			hasIntPart = 1;
@@ -1218,10 +1255,11 @@ static unsigned int nsvg__parseColorHex(const char* str)
 		c = (c&0xf) | ((c&0xf0) << 4) | ((c&0xf00) << 8);
 		c |= c<<4;
 	}
-	r = (c >> 16) & 0xff;
-	g = (c >> 8) & 0xff;
-	b = c & 0xff;
-	return NSVG_RGB(r,g,b);
+  //r = (c >> 16) & 0xff;
+  //g = (c >> 8) & 0xff;
+  //b = c & 0xff;
+  //return NSVG_RGB(r,g,b);
+  return c;
 }
 
 static unsigned int nsvg__parseColorRGB(const char* str)
@@ -2873,6 +2911,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
 
+  nsvg__addAllGradients(p);
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
 
