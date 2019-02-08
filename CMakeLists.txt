@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(nanosvg LANGUAGES CXX VERSION "0.0.0")
+project(nanosvg LANGUAGES C VERSION "0.0.0")
 
 set(NANOSVG_HEADERS "src/nanosvg.h" "src/nanosvgrast.h")
 
@@ -11,6 +11,9 @@ target_include_directories(
     INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>"
 )
+
+# Build examples
+add_subdirectory(example)
 
 # Introduce variables:
 # * CMAKE_INSTALL_INCLUDEDIR
