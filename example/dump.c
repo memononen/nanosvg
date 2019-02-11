@@ -39,14 +39,18 @@ int main(int argc, char *argv[])
     printf("%s:\n", filename);
     printf("size: %f x %f.\n", g_image->width, g_image->height);
 
+#if 0
     for (NSVGgroup* group = g_image->groups; group != NULL; group = group->next) {
       printf("group: %s parent:%s\n", group->id, group->parent ? group->parent->id : "-");
     }
+#endif
 
     for (NSVGshape* shape = g_image->shapes; shape != NULL; shape = shape->next) {
       printf("shape: '%s' visible:%d\n", shape->id, 0 != (shape->flags & NSVG_FLAGS_VISIBLE));
+#if 0
       if (shape->group)
         printf("     : group '%s'\n", shape->group->id);
+#endif
       for (NSVGpath* path = shape->paths; path != NULL; path = path->next) {
         //drawPath(path->pts, path->npts, path->closed, px * 1.5f);
         printf(" npts: %d  [%f %f %f %f]\n", path->npts,
