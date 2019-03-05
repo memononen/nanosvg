@@ -1102,7 +1102,7 @@ static double nsvg__atof(const char* s)
 	// Parse integer part
 	if (nsvg__isdigit(*cur)) {
 		// Parse digit sequence
-		intPart = (double)strtoll(cur, &end, 10);
+		intPart = strtoll(cur, &end, 10);
 		if (cur != end) {
 			res = (double)intPart;
 			hasIntPart = 1;
