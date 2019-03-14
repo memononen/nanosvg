@@ -79,7 +79,9 @@ void nsvgDeleteRasterizer(NSVGrasterizer*);
 #include <math.h>
 
 #define NSVG__SUBSAMPLES	5
+#ifndef NSVG__FIXSHIFT
 #define NSVG__FIXSHIFT		10
+#endif
 #define NSVG__FIX			(1 << NSVG__FIXSHIFT)
 #define NSVG__FIXMASK		(NSVG__FIX-1)
 #define NSVG__MEMPAGE_SIZE	1024
