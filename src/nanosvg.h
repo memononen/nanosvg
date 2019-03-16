@@ -1083,12 +1083,12 @@ error:
 }
 
 // We roll our own string to float because the std library one uses locale and messes things up.
-static double nsvg__atof(const char* s)
+static float nsvg__atof(const char* s)
 {
 	char* cur = (char*)s;
 	char* end = NULL;
-	double res = 0.0, sign = 1.0;
-	long long intPart = 0, fracPart = 0;
+	float res = 0.0, sign = 1.0;
+	float intPart = 0.0, fracPart = 0.0;
 	char hasIntPart = 0, hasFracPart = 0;
 
 	// Parse optional sign
@@ -1102,9 +1102,13 @@ static double nsvg__atof(const char* s)
 	// Parse integer part
 	if (nsvg__isdigit(*cur)) {
 		// Parse digit sequence
-		intPart = (double)strtoll(cur, &end, 10);
+#ifdef _MSC_VER
+		intPart = (float)_strtoi64(cur, &end, 10);
+#else
+		intPart = (float)strtoll(cur, &end, 10);
+#endif
 		if (cur != end) {
-			res = (double)intPart;
+			res = intPart;
 			hasIntPart = 1;
 			cur = end;
 		}
@@ -1115,9 +1119,13 @@ static double nsvg__atof(const char* s)
 		cur++; // Skip '.'
 		if (nsvg__isdigit(*cur)) {
 			// Parse digit sequence
-			fracPart = strtoll(cur, &end, 10);
+#ifdef _MSC_VER
+			fracPart = (float)_strtoi64(cur, &end, 10);
+#else
+			fracPart = (float)strtoll(cur, &end, 10);
+#endif
 			if (cur != end) {
-				res += (double)fracPart / pow(10.0, (double)(end - cur));
+				res += fracPart / powf(10.0, (float)(end - cur));
 				hasFracPart = 1;
 				cur = end;
 			}
@@ -1130,11 +1138,11 @@ static double nsvg__atof(const char* s)
 
 	// Parse optional exponent
 	if (*cur == 'e' || *cur == 'E') {
-		long expPart = 0;
+		float expPart = 0;
 		cur++; // skip 'E'
-		expPart = strtol(cur, &end, 10); // Parse digit sequence with sign
+		expPart = (float)strtol(cur, &end, 10); // Parse digit sequence with sign
 		if (cur != end) {
-			res *= pow(10.0, (double)expPart);
+			res *= powf(10.0, expPart);
 		}
 	}
 
@@ -1499,7 +1507,7 @@ static int nsvg__parseTransformArgs(const char* str, float* args, int maxNa, int
 		if (*ptr == '-' || *ptr == '+' || *ptr == '.' || nsvg__isdigit(*ptr)) {
 			if (*na >= maxNa) return 0;
 			ptr = nsvg__parseNumber(ptr, it, 64);
-			args[(*na)++] = (float)nsvg__atof(it);
+			args[(*na)++] = nsvg__atof(it);
 		} else {
 			++ptr;
 		}
