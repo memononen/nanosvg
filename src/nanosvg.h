@@ -1128,7 +1128,7 @@ static double nsvg__atof(const char* s)
 	if (*cur == 'e' || *cur == 'E') {
 		int expPart = 0;
 		cur++; // skip 'E'
-		expPart = strtol(cur, &end, 10); // Parse digit sequence with sign
+		expPart = int(strtol(cur, &end, 10)); // Parse digit sequence with sign
 		if (cur != end) {
 			res *= pow(10.0, (double)expPart);
 		}
