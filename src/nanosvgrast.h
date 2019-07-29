@@ -85,9 +85,9 @@ void nsvgDeleteRasterizer(NSVGrasterizer*);
 #define NSVG__MEMPAGE_SIZE	1024
 
 typedef struct NSVGedge {
+	struct NSVGedge* next;
 	float x0,y0, x1,y1;
 	int dir;
-	struct NSVGedge* next;
 } NSVGedge;
 
 typedef struct NSVGpoint {
@@ -99,52 +99,50 @@ typedef struct NSVGpoint {
 } NSVGpoint;
 
 typedef struct NSVGactiveEdge {
+	struct NSVGactiveEdge *next;
 	int x,dx;
 	float ey;
 	int dir;
-	struct NSVGactiveEdge *next;
 } NSVGactiveEdge;
 
 typedef struct NSVGmemPage {
+	struct NSVGmemPage* next;
 	unsigned char mem[NSVG__MEMPAGE_SIZE];
 	int size;
-	struct NSVGmemPage* next;
 } NSVGmemPage;
 
 typedef struct NSVGcachedPaint {
+	unsigned int colors[256];
+	float xform[6];
 	char type;
 	char spread;
-	float xform[6];
-	unsigned int colors[256];
 } NSVGcachedPaint;
 
-struct NSVGrasterizer
-{
-	float px, py;
-
-	float tessTol;
-	float distTol;
-
+struct NSVGrasterizer {
 	NSVGedge* edges;
-	int nedges;
-	int cedges;
-
 	NSVGpoint* points;
-	int npoints;
-	int cpoints;
-
 	NSVGpoint* points2;
-	int npoints2;
-	int cpoints2;
-
 	NSVGactiveEdge* freelist;
 	NSVGmemPage* pages;
 	NSVGmemPage* curpage;
-
 	unsigned char* scanline;
+	unsigned char* bitmap;
+
+	float px, py;
+	float tessTol;
+	float distTol;
+
+	int nedges;
+	int cedges;
+
+	int npoints;
+	int cpoints;
+
+	int npoints2;
+	int cpoints2;
+
 	int cscanline;
 
-	unsigned char* bitmap;
 	int width, height, stride;
 };
 

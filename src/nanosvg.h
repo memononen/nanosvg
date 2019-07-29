@@ -111,55 +111,52 @@ typedef struct NSVGgradientStop {
 } NSVGgradientStop;
 
 typedef struct NSVGgradient {
+	NSVGgradientStop stops[1];
 	float xform[6];
-	char spread;
 	float fx, fy;
 	int nstops;
-	NSVGgradientStop stops[1];
+	char spread;
 } NSVGgradient;
 
 typedef struct NSVGpaint {
-	char type;
 	union {
 		unsigned int color;
 		NSVGgradient* gradient;
 	};
+	char type;
 } NSVGpaint;
 
-typedef struct NSVGpath
-{
-	float* pts;					// Cubic bezier points: x0,y0, [cpx1,cpx1,cpx2,cpy2,x1,y1], ...
-	int npts;					// Total number of bezier points.
-	char closed;				// Flag indicating if shapes should be treated as closed.
-	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
-	struct NSVGpath* next;		// Pointer to next path, or NULL if last element.
+typedef struct NSVGpath {
+	struct NSVGpath* next;			// Pointer to next path, or NULL if last element.
+	float* pts;						// Cubic bezier points: x0,y0, [cpx1,cpx1,cpx2,cpy2,x1,y1], ...
+	float bounds[4];				// Tight bounding box of the shape [minx,miny,maxx,maxy].
+	int npts;						// Total number of bezier points.
+	char closed;					// Flag indicating if shapes should be treated as closed.
 } NSVGpath;
 
-typedef struct NSVGshape
-{
-	char id[64];				// Optional 'id' attr of the shape or its group
-	NSVGpaint fill;				// Fill paint
-	NSVGpaint stroke;			// Stroke paint
-	float opacity;				// Opacity of the shape.
-	float strokeWidth;			// Stroke width (scaled).
-	float strokeDashOffset;		// Stroke dash offset (scaled).
-	float strokeDashArray[8];			// Stroke dash array (scaled).
-	char strokeDashCount;				// Number of dash values in dash array.
-	char strokeLineJoin;		// Stroke join type.
-	char strokeLineCap;			// Stroke cap type.
-	float miterLimit;			// Miter limit
-	char fillRule;				// Fill rule, see NSVGfillRule.
-	unsigned char flags;		// Logical or of NSVG_FLAGS_* flags
-	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
-	NSVGpath* paths;			// Linked list of paths in the image.
-	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
+typedef struct NSVGshape {
+	NSVGpath* paths;				// Linked list of paths in the image.
+	struct NSVGshape* next;			// Pointer to next shape, or NULL if last element.
+	char id[64];					// Optional 'id' attr of the shape or its group
+	NSVGpaint fill;					// Fill paint
+	NSVGpaint stroke;				// Stroke paint
+	float bounds[4];				// Tight bounding box of the shape [minx,miny,maxx,maxy].
+	float opacity;					// Opacity of the shape.
+	float strokeWidth;				// Stroke width (scaled).
+	float strokeDashOffset;			// Stroke dash offset (scaled).
+	float strokeDashArray[8];		// Stroke dash array (scaled).
+	float miterLimit;				// Miter limit
+	char strokeDashCount;			// Number of dash values in dash array.
+	char strokeLineJoin;			// Stroke join type.
+	char strokeLineCap;				// Stroke cap type.
+	char fillRule;					// Fill rule, see NSVGfillRule.
+	unsigned char flags;			// Logical or of NSVG_FLAGS_* flags
 } NSVGshape;
 
-typedef struct NSVGimage
-{
-	float width;				// Width of the image.
-	float height;				// Height of the image.
+typedef struct NSVGimage {
 	NSVGshape* shapes;			// Linked list of shapes in the image.
+    float width;				// Width of the image.
+	float height;				// Height of the image.
 } NSVGimage;
 
 // Parses SVG file from a file, returns SVG image as paths.
@@ -396,65 +393,62 @@ typedef struct NSVGradialData {
 	NSVGcoordinate cx, cy, r, fx, fy;
 } NSVGradialData;
 
-typedef struct NSVGgradientData
-{
+typedef struct NSVGgradientData {
+	NSVGgradientStop* stops;
+	struct NSVGgradientData* next;
 	char id[64];
 	char ref[64];
-	char type;
 	union {
 		NSVGlinearData linear;
 		NSVGradialData radial;
 	};
-	char spread;
-	char units;
 	float xform[6];
 	int nstops;
-	NSVGgradientStop* stops;
-	struct NSVGgradientData* next;
+	char type;
+	char spread;
+	char units;
 } NSVGgradientData;
 
-typedef struct NSVGattrib
-{
+typedef struct NSVGattrib {
 	char id[64];
+	char fillGradient[64];
+	char strokeGradient[64];
 	float xform[6];
-	unsigned int fillColor;
-	unsigned int strokeColor;
 	float opacity;
 	float fillOpacity;
 	float strokeOpacity;
-	char fillGradient[64];
-	char strokeGradient[64];
 	float strokeWidth;
 	float strokeDashOffset;
 	float strokeDashArray[NSVG_MAX_DASHES];
+	float miterLimit;
+	float fontSize;
+	float stopOpacity;
+	float stopOffset;
+	unsigned int fillColor;
+	unsigned int strokeColor;
+	unsigned int stopColor;
 	int strokeDashCount;
 	char strokeLineJoin;
 	char strokeLineCap;
-	float miterLimit;
 	char fillRule;
-	float fontSize;
-	unsigned int stopColor;
-	float stopOpacity;
-	float stopOffset;
 	char hasFill;
 	char hasStroke;
 	char visible;
 } NSVGattrib;
 
-typedef struct NSVGparser
-{
-	NSVGattrib attr[NSVG_MAX_ATTR];
-	int attrHead;
-	float* pts;
-	int npts;
-	int cpts;
+typedef struct NSVGparser {
 	NSVGpath* plist;
 	NSVGimage* image;
 	NSVGgradientData* gradients;
 	NSVGshape* shapesTail;
+	float* pts;
+	NSVGattrib attr[NSVG_MAX_ATTR];
 	float viewMinx, viewMiny, viewWidth, viewHeight;
-	int alignX, alignY, alignType;
 	float dpi;
+	int alignX, alignY, alignType;
+	int attrHead;
+	int npts;
+	int cpts;
 	char pathFlag;
 	char defsFlag;
 } NSVGparser;
