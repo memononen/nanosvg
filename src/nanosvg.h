@@ -881,8 +881,8 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 		grad->xform[0] = r; grad->xform[1] = 0;
 		grad->xform[2] = 0; grad->xform[3] = r;
 		grad->xform[4] = cx; grad->xform[5] = cy;
-		grad->fx = fx / r;
-		grad->fy = fy / r;
+		grad->fx = (fx - cx) / r;
+		grad->fy = (fy - cy) / r;		
 	}
 
 	nsvg__xformMultiply(grad->xform, data->xform);
