@@ -1153,10 +1153,16 @@ static const char* nsvg__parseNumber(const char* s, char* it, const int size)
 		s++;
 	}
 	// integer part
-	while (*s && nsvg__isdigit(*s)) {
+	// leading zero
+	if (*s && *s == '0') {
 		if (i < last) it[i++] = *s;
 		s++;
 	}
+	else
+		while (*s && nsvg__isdigit(*s)) {
+			if (i < last) it[i++] = *s;
+			s++;
+		}
 	if (*s == '.') {
 		// decimal point
 		if (i < last) it[i++] = *s;

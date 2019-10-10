@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
 		filename = argv[1];
 	g_image = nsvgParseFromFile(filename, "px", 96.0f);
 	if (g_image == NULL) {
-		printf("Could not open SVG image.\n");
+		printf("Could not open SVG image '%s'.\n", filename);
 		glfwTerminate();
 		return -1;
 	}
