@@ -214,6 +214,10 @@ void nsvgDelete(NSVGimage* image);
 	#define NSVG_INLINE inline
 #endif
 
+#ifndef NANOSVG_DEBUG
+#define NANOSVG_DEBUG(x...)
+//#define NANOSVG_DEBUG printf
+#endif
 
 static int nsvg__isspace(char c)
 {
@@ -2282,6 +2286,10 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 					nargs = 0;
 				}
 			} else {
+				// New command
+				if (nargs) {
+					NANOSVG_DEBUG("unfinished command '%c' %d/%d args\n", cmd, nargs, rargs);
+				}
 				cmd = item[0];
 				rargs = nsvg__getArgsPerElement(cmd);
 				if (cmd == 'M' || cmd == 'm') {
