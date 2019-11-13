@@ -1185,7 +1185,7 @@ static const char* nsvg__parseNumber(const char* s, char* it, const int size)
 	return s;
 }
 
-static const char* nsvg__getNextPathItemWhenA234(const char* s, char* it)
+static const char* nsvg__getNextPathItemWhenArcFlag(const char* s, char* it)
 {
   it[0] = '\0';
   while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
@@ -2229,8 +2229,8 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 
 		while (*s) {
 			item[0] = '\0';
-			if ((cmd == 'A' || cmd == 'a') && (nargs == 2 || nargs == 3 || nargs == 4))
-				s = nsvg__getNextPathItemWhenA234(s, item);
+			if ((cmd == 'A' || cmd == 'a') && (nargs == 3 || nargs == 4))
+				s = nsvg__getNextPathItemWhenArcFlag(s, item);
 			if (!*item)
 				s = nsvg__getNextPathItem(s, item);
 			if (!*item) break;
