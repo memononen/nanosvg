@@ -819,14 +819,13 @@ static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
 static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const float* localBounds, char* paintType)
 {
 	NSVGattrib* attr = nsvg__getAttr(p);
-	NSVGgradientData* data = NULL;
 	NSVGgradientData* ref = NULL;
 	NSVGgradientStop* stops = NULL;
 	NSVGgradient* grad;
 	float ox, oy, sw, sh, sl;
 	int nstops = 0;
 
-	data = nsvg__findGradientData(p, id);
+	NSVGgradientData* data = nsvg__findGradientData(p, id);
 	if (data == NULL) return NULL;
 
 	// TODO: use ref to fill in all unset values too.
@@ -2899,12 +2898,11 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 {
-	FILE* fp = NULL;
 	size_t size;
 	char* data = NULL;
 	NSVGimage* image = NULL;
 
-	fp = fopen(filename, "rb");
+	FILE* fp = fopen(filename, "rb");
 	if (!fp) goto error;
 	fseek(fp, 0, SEEK_END);
 	size = ftell(fp);
