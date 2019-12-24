@@ -262,7 +262,6 @@ static void nsvg__parseElement(char* s,
 	char* name;
 	int start = 0;
 	int end = 0;
-	char quote;
 
 	// Skip white space after the '<'
 	while (*s && nsvg__isspace(*s)) s++;
@@ -288,6 +287,7 @@ static void nsvg__parseElement(char* s,
 	while (!end && *s && nattr < NSVG_XML_MAX_ATTRIBS-3) {
 		char* name = NULL;
 		char* value = NULL;
+		char quote;
 
 		// Skip white space before the attrib name
 		while (*s && nsvg__isspace(*s)) s++;
@@ -567,8 +567,8 @@ static double nsvg__evalBezier(double t, double p0, double p1, double p2, double
 
 static void nsvg__curveBounds(float* bounds, float* curve)
 {
-	int i, j, count;
-	double roots[2], a, b, c, b2ac, t, v;
+	int i, j;
+	double roots[2], b2ac, t, v;
 	float* v0 = &curve[0];
 	float* v1 = &curve[2];
 	float* v2 = &curve[4];
@@ -587,6 +587,8 @@ static void nsvg__curveBounds(float* bounds, float* curve)
 
 	// Add bezier curve inflection points in X and Y.
 	for (i = 0; i < 2; i++) {
+		double a, b, c;
+		int count;
 		a = -3.0 * v0[i] + 9.0 * v1[i] - 9.0 * v2[i] + 3.0 * v3[i];
 		b = 6.0 * v0[i] - 12.0 * v1[i] + 6.0 * v2[i];
 		c = 3.0 * v1[i] - 3.0 * v0[i];
@@ -722,8 +724,8 @@ static void nsvg__moveTo(NSVGparser* p, float x, float y)
 
 static void nsvg__lineTo(NSVGparser* p, float x, float y)
 {
-	float px,py, dx,dy;
 	if (p->npts > 0) {
+		float px,py, dx,dy;
 		px = p->pts[(p->npts-1)*2+0];
 		py = p->pts[(p->npts-1)*2+1];
 		dx = x - px;
@@ -1088,7 +1090,6 @@ static double nsvg__atof(const char* s)
 	char* cur = (char*)s;
 	char* end = NULL;
 	double res = 0.0, sign = 1.0;
-	long long intPart = 0, fracPart = 0;
 	char hasIntPart = 0, hasFracPart = 0;
 
 	// Parse optional sign
@@ -1102,6 +1103,7 @@ static double nsvg__atof(const char* s)
 	// Parse integer part
 	if (nsvg__isdigit(*cur)) {
 		// Parse digit sequence
+		long long intPart;
 		intPart = strtoll(cur, &end, 10);
 		if (cur != end) {
 			res = (double)intPart;
@@ -1115,6 +1117,7 @@ static double nsvg__atof(const char* s)
 		cur++; // Skip '.'
 		if (nsvg__isdigit(*cur)) {
 			// Parse digit sequence
+			long long fracPart;
 			fracPart = strtoll(cur, &end, 10);
 			if (cur != end) {
 				res += (double)fracPart / pow(10.0, (double)(end - cur));
@@ -1819,10 +1822,10 @@ static int nsvg__parseNameValue(NSVGparser* p, const char* start, const char* en
 
 static void nsvg__parseStyle(NSVGparser* p, const char* str)
 {
-	const char* start;
-	const char* end;
 
 	while (*str) {
+		const char* start;
+		const char* end;
 		// Left Trim
 		while(*str && nsvg__isspace(*str)) ++str;
 		start = str;
@@ -2071,7 +2074,7 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 	float x1, y1, x2, y2, cx, cy, dx, dy, d;
 	float x1p, y1p, cxp, cyp, s, sa, sb;
 	float ux, uy, vx, vy, a1, da;
-	float x, y, tanx, tany, a, px = 0, py = 0, ptanx = 0, ptany = 0, t[6];
+	float x, y, tanx, tany, px = 0, py = 0, ptanx = 0, ptany = 0, t[6];
 	float sinrx, cosrx;
 	int fa, fs;
 	int i, ndivs;
@@ -2163,6 +2166,7 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 		kappa = -kappa;
 
 	for (i = 0; i <= ndivs; i++) {
+		float a;
 		a = a1 + da * ((float)i/(float)ndivs);
 		dx = cosf(a);
 		dy = sinf(a);
@@ -2183,13 +2187,9 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 static void nsvg__parsePath(NSVGparser* p, const char** attr)
 {
 	const char* s = NULL;
-	char cmd = '\0';
 	float args[10];
-	int nargs;
-	int rargs = 0;
 	float cpx, cpy, cpx2, cpy2;
 	const char* tmp[4];
-	char closedFlag;
 	int i;
 	char item[64];
 
@@ -2206,6 +2206,10 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 	}
 
 	if (s) {
+		char cmd = '\0';
+		int nargs;
+		int rargs = 0;
+		char closedFlag;
 		nsvg__resetPath(p);
 		cpx = 0; cpy = 0;
 		cpx2 = 0; cpy2 = 0;
