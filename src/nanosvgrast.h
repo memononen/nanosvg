@@ -152,6 +152,7 @@ NSVGrasterizer* nsvgCreateRasterizer()
 {
 	NSVGrasterizer* r = (NSVGrasterizer*)malloc(sizeof(NSVGrasterizer));
 	if (r == NULL) goto error;
+	// cppcheck-suppress memsetClassFloat
 	memset(r, 0, sizeof(NSVGrasterizer));
 
 	r->tessTol = 0.25f;
