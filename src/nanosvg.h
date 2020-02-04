@@ -2798,7 +2798,19 @@ static void nsvg__content(void* ud, const char* s)
 		const char* start = s;
 		while (*s) {
 			char c = *s;
-			if (nsvg__isspace(c) || c == '{' || c == ',') {
+			if (state == 2) {
+				if (c == '{') {
+					start = s + 1;
+				} else if (c == '}') {
+					NSVGstyles *style = p->styles;
+					while (class_count > 0) {
+						style->description = nsvg__strndup(start, (size_t)(s - start));
+						style = style->next;
+						--class_count;
+					}
+					state = 0;
+				}
+			} else if (nsvg__isspace(c) || c == '{' || c == ',') {
 				if (state == 1) {
 					NSVGstyles* next = p->styles;
 
@@ -2808,20 +2820,11 @@ static void nsvg__content(void* ud, const char* s)
 					start = s + 1;
 					state = c == ',' ? 0 : 2;
 					++class_count;
-				}				
-			} else if (state == 2 && c == '}') {
-				NSVGstyles *style = p->styles;
-				while (class_count > 0) {
-					style->description = nsvg__strndup(start, (size_t)(s - start));
-					style = style->next;
-					--class_count;
 				}
-				state = 0;
-			}
-			else if (state == 0) {
+			} else if (state == 0) {
 				start = s;
 				state = 1;
-			}  
+			}
 			s++;
 		}
 	}
