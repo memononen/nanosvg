@@ -2812,14 +2812,16 @@ static void nsvg__content(void* ud, const char* s)
 				}
 			} else if (nsvg__isspace(c) || c == '{' || c == ',') {
 				if (state == 1) {
-					NSVGstyles* next = p->styles;
-
-					p->styles = (NSVGstyles*)malloc(sizeof(NSVGstyles));
-					p->styles->next = next;
-					p->styles->name = nsvg__strndup(start, (size_t)(s - start));
+					if (*start == '.') {
+						NSVGstyles* next = p->styles;
+						p->styles = (NSVGstyles*)malloc(sizeof(NSVGstyles));
+						p->styles->description = NULL;
+						p->styles->next = next;
+						p->styles->name = nsvg__strndup(start, (size_t)(s - start));
+						++class_count;
+					}
 					start = s + 1;
 					state = c == ',' ? 0 : 2;
-					++class_count;
 				}
 			} else if (state == 0) {
 				start = s;
