@@ -1021,17 +1021,18 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 	} else if (cache->type == NSVG_PAINT_LINEAR_GRADIENT) {
 		// TODO: spread modes.
 		// TODO: plenty of opportunities to optimize.
-		float fx, fy, dx, gy;
+		float fx, fy, dx;
 		float* t = cache->xform;
-		int i, cr, cg, cb, ca;
-		unsigned int c;
+		int i;
 
 		fx = ((float)x - tx) / scale;
 		fy = ((float)y - ty) / scale;
 		dx = 1.0f / scale;
 
 		for (i = 0; i < count; i++) {
-			int r,g,b,a,ia;
+			float gy;
+			unsigned int c;
+			int r,g,b,a,ia, cr, cg, cb, ca;
 			gy = fx*t[1] + fy*t[3] + t[5];
 			c = cache->colors[(int)nsvg__clampf(gy*255.0f, 0, 255.0f)];
 			cr = (c) & 0xff;
@@ -1066,17 +1067,18 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 		// TODO: spread modes.
 		// TODO: plenty of opportunities to optimize.
 		// TODO: focus (fx,fy)
-		float fx, fy, dx, gx, gy, gd;
+		float fx, fy, dx;
 		float* t = cache->xform;
-		int i, cr, cg, cb, ca;
-		unsigned int c;
+		int i;
 
 		fx = ((float)x - tx) / scale;
 		fy = ((float)y - ty) / scale;
 		dx = 1.0f / scale;
 
 		for (i = 0; i < count; i++) {
-			int r,g,b,a,ia;
+			float gx, gy, gd;
+			int r,g,b,a,ia,ca,cr,cg,cb;
+			unsigned int c;
 			gx = fx*t[0] + fy*t[2] + t[4];
 			gy = fx*t[1] + fy*t[3] + t[5];
 			gd = sqrtf(gx*gx + gy*gy);
@@ -1222,8 +1224,9 @@ static void nsvg__unpremultiplyAlpha(unsigned char* image, int w, int h, int str
 	for (y = 0; y < h; y++) {
 		unsigned char *row = &image[y*stride];
 		for (x = 0; x < w; x++) {
-			int r = 0, g = 0, b = 0, a = row[3], n = 0;
+			int a = row[3];
 			if (a == 0) {
+				int n = 0, r = 0, g = 0, b = 0;
 				if (x-1 > 0 && row[-1] != 0) {
 					r += row[-4];
 					g += row[-3];
@@ -1262,7 +1265,7 @@ static void nsvg__unpremultiplyAlpha(unsigned char* image, int w, int h, int str
 
 static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opacity)
 {
-	int i, j;
+	int i;
 	NSVGgradient* grad;
 
 	cache->type = paint->type;
@@ -1286,7 +1289,7 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 	} else {
 		unsigned int ca, cb = 0;
 		float ua, ub, du, u;
-		int ia, ib, count;
+		int ia, ib;
 
 		ca = nsvg__applyOpacity(grad->stops[0].color, opacity);
 		ua = nsvg__clampf(grad->stops[0].offset, 0, 1);
@@ -1296,7 +1299,7 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 		for (i = 0; i < ia; i++) {
 			cache->colors[i] = ca;
 		}
-
+		
 		for (i = 0; i < grad->nstops-1; i++) {
 			ca = nsvg__applyOpacity(grad->stops[i].color, opacity);
 			cb = nsvg__applyOpacity(grad->stops[i+1].color, opacity);
@@ -1304,10 +1307,11 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 			ub = nsvg__clampf(grad->stops[i+1].offset, 0, 1);
 			ia = (int)(ua * 255.0f);
 			ib = (int)(ub * 255.0f);
-			count = ib - ia;
+			int count = ib - ia;
 			if (count <= 0) continue;
 			u = 0;
 			du = 1.0f / (float)count;
+			int j;
 			for (j = 0; j < count; j++) {
 				cache->colors[ia+j] = nsvg__lerpRGBA(ca,cb,u);
 				u += du;
