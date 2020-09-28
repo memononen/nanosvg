@@ -805,7 +805,9 @@ static float nsvg__convertToPixels(NSVGparser* p, NSVGcoordinate c, float orig, 
 static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
 {
 	NSVGgradientData* grad = p->gradients;
-	while (grad) {
+	if (id == NULL || *id == '\0')
+		return NULL;
+	while (grad != NULL) {
 		if (strcmp(grad->id, id) == 0)
 			return grad;
 		grad = grad->next;
@@ -822,19 +824,26 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 	NSVGgradient* grad;
 	float ox, oy, sw, sh, sl;
 	int nstops = 0;
+	int refIter;
 
 	data = nsvg__findGradientData(p, id);
 	if (data == NULL) return NULL;
 
 	// TODO: use ref to fill in all unset values too.
 	ref = data;
+	refIter = 0;
 	while (ref != NULL) {
+		NSVGgradientData* nextRef = NULL;
 		if (stops == NULL && ref->stops != NULL) {
 			stops = ref->stops;
 			nstops = ref->nstops;
 			break;
 		}
-		ref = nsvg__findGradientData(p, ref->ref);
+		nextRef = nsvg__findGradientData(p, ref->ref);
+		if (nextRef == ref) break; // prevent infite loops on malformed data
+		ref = nextRef;
+		refIter++;
+		if (refIter > 32) break; // prevent infite loops on malformed data
 	}
 	if (stops == NULL) return NULL;
 
