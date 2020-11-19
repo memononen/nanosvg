@@ -1473,8 +1473,8 @@ static int nsvg__isCoordinate(const char* s)
 	// optional sign
 	if (*s == '-' || *s == '+')
 		s++;
-	// must have at least one digit
-	return nsvg__isdigit(*s);
+	// must have at least one digit, or start by a dot
+	return (nsvg__isdigit(*s) || *s == '.');
 }
 
 static NSVGcoordinate nsvg__parseCoordinateRaw(const char* str)
