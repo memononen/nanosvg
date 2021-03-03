@@ -855,6 +855,7 @@ static int nsvg__cmpEdge(const void *p, const void *q)
 static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float startPoint)
 {
 	 NSVGactiveEdge* z;
+	 float dxdy;
 
 	if (r->freelist != NULL) {
 		// Restore from freelist.
@@ -866,7 +867,7 @@ static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float sta
 		if (z == NULL) return NULL;
 	}
 
-	float dxdy = (e->x1 - e->x0) / (e->y1 - e->y0);
+	dxdy = (e->x1 - e->x0) / (e->y1 - e->y0);
 //	STBTT_assert(e->y0 <= start_point);
 	// round dx down to avoid going too far
 	if (dxdy < 0)
