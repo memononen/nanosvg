@@ -101,6 +101,15 @@ enum NSVGfillRule {
 	NSVG_FILLRULE_EVENODD = 1
 };
 
+enum NSVGpaintOrder {
+	NSVG_PAINTORDER_FILL_STROKE_MARKERS = 0,
+	NSVG_PAINTORDER_FILL_MARKERS_STROKE = 1,
+	NSVG_PAINTORDER_STROKE_FILL_MARKERS = 2,
+	NSVG_PAINTORDER_STROKE_MARKERS_FILL = 3,
+	NSVG_PAINTORDER_MARKERS_FILL_STROKE = 4,
+	NSVG_PAINTORDER_MARKERS_STROKE_FILL = 5
+};
+
 enum NSVGflags {
 	NSVG_FLAGS_VISIBLE = 0x01
 };
@@ -153,6 +162,7 @@ typedef struct NSVGshape
 	float bounds[4];			// Tight bounding box of the shape [minx,miny,maxx,maxy].
 	NSVGpath* paths;			// Linked list of paths in the image.
 	struct NSVGshape* next;		// Pointer to next shape, or NULL if last element.
+	char paintOrder;			// see NSVGpaintOrder
 } NSVGshape;
 
 typedef struct NSVGimage
@@ -434,6 +444,7 @@ typedef struct NSVGattrib
 	char hasFill;
 	char hasStroke;
 	char visible;
+	char paintOrder;
 } NSVGattrib;
 
 typedef struct NSVGparser
@@ -636,6 +647,7 @@ static NSVGparser* nsvg__createParser()
 	p->attr[0].strokeLineCap = NSVG_CAP_BUTT;
 	p->attr[0].miterLimit = 4;
 	p->attr[0].fillRule = NSVG_FILLRULE_NONZERO;
+	p->attr[0].paintOrder = NSVG_PAINTORDER_FILL_STROKE_MARKERS;
 	p->attr[0].hasFill = 1;
 	p->attr[0].visible = 1;
 
@@ -966,6 +978,7 @@ static void nsvg__addShape(NSVGparser* p)
 	shape->strokeLineCap = attr->strokeLineCap;
 	shape->miterLimit = attr->miterLimit;
 	shape->fillRule = attr->fillRule;
+	shape->paintOrder = attr->paintOrder;
 	shape->opacity = attr->opacity;
 
 	shape->paths = p->plist;
@@ -1694,6 +1707,16 @@ static char nsvg__parseFillRule(const char* str)
 	return NSVG_FILLRULE_NONZERO;
 }
 
+static char nsvg__parsePaintOrder(const char * str)
+{
+	if (strcmp(str, "stroke") == 0)
+		return NSVG_PAINTORDER_STROKE_FILL_MARKERS;
+	else if (strcmp(str, "markers") == 0)
+		return NSVG_PAINTORDER_MARKERS_FILL_STROKE;
+	// TODO: handle inherit.
+	return NSVG_PAINTORDER_FILL_STROKE_MARKERS;
+}
+
 static const char* nsvg__getNextDashItem(const char* s, char* it)
 {
 	int n = 0;
@@ -1789,6 +1812,8 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 		attr->strokeLineJoin = nsvg__parseLineJoin(value);
 	} else if (strcmp(name, "stroke-miterlimit") == 0) {
 		attr->miterLimit = nsvg__parseMiterLimit(value);
+	} else if (strcmp(name, "paint-order") == 0) {
+		attr->paintOrder = nsvg__parsePaintOrder(value);
 	} else if (strcmp(name, "fill-rule") == 0) {
 		attr->fillRule = nsvg__parseFillRule(value);
 	} else if (strcmp(name, "font-size") == 0) {
