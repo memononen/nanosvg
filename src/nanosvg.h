@@ -281,7 +281,7 @@ static void nsvg__parseElement(char* s,
 
 	// Get attribs
 	while (!end && *s && nattr < NSVG_XML_MAX_ATTRIBS-3) {
-		char* name = NULL;
+		char* aname = NULL;
 		char* value = NULL;
 
 		// Skip white space before the attrib name
@@ -291,7 +291,7 @@ static void nsvg__parseElement(char* s,
 			end = 1;
 			break;
 		}
-		name = s;
+		aname = s;
 		// Find end of the attrib name.
 		while (*s && !nsvg__isspace(*s) && *s != '=') s++;
 		if (*s) { *s++ = '\0'; }
@@ -306,8 +306,8 @@ static void nsvg__parseElement(char* s,
 		if (*s) { *s++ = '\0'; }
 
 		// Store only well formed attributes
-		if (name && value) {
-			attr[nattr++] = name;
+		if (aname && value) {
+			attr[nattr++] = aname;
 			attr[nattr++] = value;
 		}
 	}
