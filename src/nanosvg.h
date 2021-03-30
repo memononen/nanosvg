@@ -1488,7 +1488,9 @@ static NSVGcoordinate nsvg__parseCoordinateRaw(const char* str)
 
 static NSVGcoordinate nsvg__coord(float v, int units)
 {
-	NSVGcoordinate coord = {v, units};
+	NSVGcoordinate coord ;
+	coord.value = v;
+	coord.units = units;
 	return coord;
 }
 
