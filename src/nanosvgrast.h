@@ -1362,12 +1362,75 @@ static void dumpEdges(NSVGrasterizer* r, const char* name)
 }
 */
 
+static void drawStroke(NSVGrasterizer* r, const NSVGshape *shape, NSVGcachedPaint * cache, float tx, float ty, float scale)
+{
+	int i;
+	NSVGedge *e = NULL;
+
+	if (shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * scale) > 0.01f) {
+		nsvg__resetPool(r);
+		r->freelist = NULL;
+		r->nedges = 0;
+
+		nsvg__flattenShapeStroke(r, shape, scale);
+
+//		dumpEdges(r, "edge.svg");
+
+		// Scale and translate edges
+		for (i = 0; i < r->nedges; i++) {
+			e = &r->edges[i];
+			e->x0 = tx + e->x0;
+			e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+			e->x1 = tx + e->x1;
+			e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+		}
+
+		// Rasterize edges
+		qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+
+		// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+		nsvg__initPaint(cache, &shape->stroke, shape->opacity);
+
+		nsvg__rasterizeSortedEdges(r, tx,ty,scale, cache, NSVG_FILLRULE_NONZERO);
+	}
+}
+
+static void drawFill(NSVGrasterizer* r, const NSVGshape *shape, NSVGcachedPaint * cache, float tx, float ty, float scale)
+{
+	int i;
+	NSVGedge *e = NULL;
+
+	if (shape->fill.type != NSVG_PAINT_NONE) {
+		nsvg__resetPool(r);
+		r->freelist = NULL;
+		r->nedges = 0;
+
+		nsvg__flattenShape(r, shape, scale);
+
+		// Scale and translate edges
+		for (i = 0; i < r->nedges; i++) {
+			e = &r->edges[i];
+			e->x0 = tx + e->x0;
+			e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+			e->x1 = tx + e->x1;
+			e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+		}
+
+		// Rasterize edges
+		qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+
+		// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+		nsvg__initPaint(cache, &shape->fill, shape->opacity);
+
+		nsvg__rasterizeSortedEdges(r, tx,ty,scale, cache, shape->fillRule);
+	}
+}
+
 void nsvgRasterize(NSVGrasterizer* r,
 				   NSVGimage* image, float tx, float ty, float scale,
 				   unsigned char* dst, int w, int h, int stride)
 {
-	NSVGshape *shape = NULL;
-	NSVGedge *e = NULL;
+	const NSVGshape *shape = NULL;
 	NSVGcachedPaint cache;
 	int i;
 
@@ -1389,55 +1452,21 @@ void nsvgRasterize(NSVGrasterizer* r,
 		if (!(shape->flags & NSVG_FLAGS_VISIBLE))
 			continue;
 
-		if (shape->fill.type != NSVG_PAINT_NONE) {
-			nsvg__resetPool(r);
-			r->freelist = NULL;
-			r->nedges = 0;
+		switch (shape->paintOrder)
+		{
+			case NSVG_PAINTORDER_FILL_STROKE_MARKERS:
+			case NSVG_PAINTORDER_FILL_MARKERS_STROKE:
+			case NSVG_PAINTORDER_MARKERS_FILL_STROKE:
+				drawFill(r, shape, &cache, tx, ty, scale);
+				drawStroke(r, shape, &cache, tx, ty, scale);
+				break;
 
-			nsvg__flattenShape(r, shape, scale);
-
-			// Scale and translate edges
-			for (i = 0; i < r->nedges; i++) {
-				e = &r->edges[i];
-				e->x0 = tx + e->x0;
-				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
-				e->x1 = tx + e->x1;
-				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
-			}
-
-			// Rasterize edges
-			qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
-
-			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
-			nsvg__initPaint(&cache, &shape->fill, shape->opacity);
-
-			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, shape->fillRule);
-		}
-		if (shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * scale) > 0.01f) {
-			nsvg__resetPool(r);
-			r->freelist = NULL;
-			r->nedges = 0;
-
-			nsvg__flattenShapeStroke(r, shape, scale);
-
-//			dumpEdges(r, "edge.svg");
-
-			// Scale and translate edges
-			for (i = 0; i < r->nedges; i++) {
-				e = &r->edges[i];
-				e->x0 = tx + e->x0;
-				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
-				e->x1 = tx + e->x1;
-				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
-			}
-
-			// Rasterize edges
-			qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
-
-			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
-			nsvg__initPaint(&cache, &shape->stroke, shape->opacity);
-
-			nsvg__rasterizeSortedEdges(r, tx,ty,scale, &cache, NSVG_FILLRULE_NONZERO);
+			case NSVG_PAINTORDER_STROKE_FILL_MARKERS:
+			case NSVG_PAINTORDER_STROKE_MARKERS_FILL:
+			case NSVG_PAINTORDER_MARKERS_STROKE_FILL:
+				drawStroke(r, shape, &cache, tx, ty, scale);
+				drawFill(r, shape, &cache, tx, ty, scale);
+				break;
 		}
 	}
 
