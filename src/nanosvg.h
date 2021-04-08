@@ -187,6 +187,7 @@ void nsvgDelete(NSVGimage* image);
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 #define NSVG_PI (3.14159265358979323846264338327f)
