@@ -1371,6 +1371,8 @@ void nsvgRasterize(NSVGrasterizer* r,
 	NSVGcachedPaint cache;
 	int i;
 
+	if (w < 0 || h < 0) return;
+
 	r->bitmap = dst;
 	r->width = w;
 	r->height = h;
