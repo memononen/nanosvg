@@ -616,10 +616,12 @@ static NSVGparser* nsvg__createParser()
 	NSVGparser* p;
 	p = (NSVGparser*)malloc(sizeof(NSVGparser));
 	if (p == NULL) goto error;
+	// cppcheck-suppress memsetClassFloat
 	memset(p, 0, sizeof(NSVGparser));
 
 	p->image = (NSVGimage*)malloc(sizeof(NSVGimage));
 	if (p->image == NULL) goto error;
+	// cppcheck-suppress memsetClassFloat
 	memset(p->image, 0, sizeof(NSVGimage));
 
 	// Init style
@@ -953,6 +955,7 @@ static void nsvg__addShape(NSVGparser* p)
 
 	shape = (NSVGshape*)malloc(sizeof(NSVGshape));
 	if (shape == NULL) goto error;
+	// cppcheck-suppress memsetClassFloat
 	memset(shape, 0, sizeof(NSVGshape));
 
 	memcpy(shape->id, attr->id, sizeof shape->id);
@@ -1052,6 +1055,7 @@ static void nsvg__addPath(NSVGparser* p, char closed)
 
 	path = (NSVGpath*)malloc(sizeof(NSVGpath));
 	if (path == NULL) goto error;
+	// cppcheck-suppress memsetClassFloat
 	memset(path, 0, sizeof(NSVGpath));
 
 	path->pts = (float*)malloc(p->npts*2*sizeof(float));
@@ -2599,6 +2603,7 @@ static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
 	int i;
 	NSVGgradientData* grad = (NSVGgradientData*)malloc(sizeof(NSVGgradientData));
 	if (grad == NULL) return;
+	// cppcheck-suppress memsetClassFloat
 	memset(grad, 0, sizeof(NSVGgradientData));
 	grad->units = NSVG_OBJECT_SPACE;
 	grad->type = type;
@@ -2981,6 +2986,7 @@ NSVGpath* nsvgDuplicatePath(NSVGpath* p)
 
     res = (NSVGpath*)malloc(sizeof(NSVGpath));
     if (res == NULL) goto error;
+    // cppcheck-suppress memsetClassFloat
     memset(res, 0, sizeof(NSVGpath));
 
     res->pts = (float*)malloc(p->npts*2*sizeof(float));
