@@ -517,7 +517,7 @@ static void nsvg__miterJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right
 	if (p1->flags & NSVG_PT_LEFT) {
 		lx0 = lx1 = p1->x - p1->dmx * w;
 		ly0 = ly1 = p1->y - p1->dmy * w;
-		nsvg__addEdge(r, lx1, ly1, left->x, left->y);
+		nsvg__addEdge(r, lx0, ly0, left->x, left->y);
 
 		rx0 = p1->x + (dlx0 * w);
 		ry0 = p1->y + (dly0 * w);
@@ -535,7 +535,7 @@ static void nsvg__miterJoin(NSVGrasterizer* r, NSVGpoint* left, NSVGpoint* right
 
 		rx0 = rx1 = p1->x + p1->dmx * w;
 		ry0 = ry1 = p1->y + p1->dmy * w;
-		nsvg__addEdge(r, right->x, right->y, rx1, ry1);
+		nsvg__addEdge(r, right->x, right->y, rx0, ry0);
 	}
 
 	left->x = lx1; left->y = ly1;
