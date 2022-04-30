@@ -214,6 +214,10 @@ void nsvgDelete(NSVGimage* image);
 	#define NSVG_INLINE inline
 #endif
 
+#ifndef NANOSVG_DEBUG
+#define NANOSVG_DEBUG(x...)
+//#define NANOSVG_DEBUG printf
+#endif
 
 static int nsvg__isspace(char c)
 {
@@ -1163,10 +1167,16 @@ static const char* nsvg__parseNumber(const char* s, char* it, const int size)
 		s++;
 	}
 	// integer part
-	while (*s && nsvg__isdigit(*s)) {
+	// leading zero
+	if (*s && *s == '0') {
 		if (i < last) it[i++] = *s;
 		s++;
 	}
+	else
+		while (*s && nsvg__isdigit(*s)) {
+			if (i < last) it[i++] = *s;
+			s++;
+		}
 	if (*s == '.') {
 		// decimal point
 		if (i < last) it[i++] = *s;
@@ -2301,6 +2311,10 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 					nargs = 0;
 				}
 			} else {
+				// New command
+				if (nargs) {
+					NANOSVG_DEBUG("unfinished command '%c' %d/%d args\n", cmd, nargs, rargs);
+				}
 				cmd = item[0];
 				if (cmd == 'M' || cmd == 'm') {
 					// Commit path.

@@ -22,17 +22,24 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #define NANOSVG_IMPLEMENTATION
+#define NANOSVG_ALL_COLOR_KEYWORDS
 #include "nanosvg.h"
 #define NANOSVGRAST_IMPLEMENTATION
 #include "nanosvgrast.h"
 
-int main()
+int main(int argc, char *argv[])
 {
 	NSVGimage *image = NULL;
 	NSVGrasterizer *rast = NULL;
 	unsigned char* img = NULL;
 	int w, h;
 	const char* filename = "../example/23.svg";
+	const char* out_filename = "svg.png";
+
+	if (argc > 1)
+		filename = argv[1];
+	if (argc > 2)
+		out_filename = argv[2];
 
 	printf("parsing %s\n", filename);
 	image = nsvgParseFromFile(filename, "px", 96.0f);
@@ -58,8 +65,10 @@ int main()
 	printf("rasterizing image %d x %d\n", w, h);
 	nsvgRasterize(rast, image, 0,0,1, img, w, h, w*4);
 
-	printf("writing svg.png\n");
- 	stbi_write_png("svg.png", w, h, 4, img, w*4);
+	if (out_filename[0]) {
+		printf("writing %s\n", out_filename);
+		stbi_write_png(out_filename, w, h, 4, img, w*4);
+	}
 
 error:
 	nsvgDeleteRasterizer(rast);

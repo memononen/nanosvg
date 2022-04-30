@@ -22,6 +22,7 @@
 #include <GLFW/glfw3.h>
 
 #define NANOSVG_IMPLEMENTATION
+#define NANOSVG_ALL_COLOR_KEYWORDS
 #include "nanosvg.h"
 
 NSVGimage* g_image = NULL;
@@ -215,7 +216,7 @@ void resizecb(GLFWwindow* window, int width, int height)
 	drawframe(window);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	GLFWwindow* window;
 	const GLFWvidmode* mode;
@@ -224,7 +225,7 @@ int main()
 		return -1;
 
 	mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    window = glfwCreateWindow(mode->width - 40, mode->height - 80, "Nano SVG", NULL, NULL);
+	window = glfwCreateWindow(mode->width - 40, mode->height - 80, "Nano SVG", NULL, NULL);
 	if (!window)
 	{
 		printf("Could not open window\n");
@@ -238,12 +239,17 @@ int main()
 	glEnable(GL_LINE_SMOOTH);
 
 
-	g_image = nsvgParseFromFile("../example/nano.svg", "px", 96.0f);
+	const char* filename = "../example/nano.svg";
+	if (argc > 1)
+		filename = argv[1];
+	g_image = nsvgParseFromFile(filename, "px", 96.0f);
 	if (g_image == NULL) {
-		printf("Could not open SVG image.\n");
+		printf("Could not open SVG image '%s'.\n", filename);
 		glfwTerminate();
 		return -1;
 	}
+
+	printf("size: %f x %f.\n", g_image->width, g_image->height);
 
 	while (!glfwWindowShouldClose(window))
 	{
