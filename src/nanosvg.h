@@ -165,6 +165,9 @@ typedef struct NSVGimage
 // Parses SVG file from a file, returns SVG image as paths.
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi);
 
+// Parses SVG file from ram, returns SVG image.
+NSVGimage* nsvgParseFromRam(const uint8_t* file_data, int file_data_size, const char* units, float dpi);
+
 // Parses SVG file from a null terminated string, returns SVG image as paths.
 // Important note: changes the string.
 NSVGimage* nsvgParse(char* input, const char* units, float dpi);
@@ -2955,6 +2958,25 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 
 error:
 	if (fp) fclose(fp);
+	if (data) free(data);
+	if (image) nsvgDelete(image);
+	return NULL;
+}
+
+NSVGimage* nsvgParseFromRam(const uint8_t* file_data, int file_data_size, const char* units, float dpi)
+{
+	char* data = NULL;
+	NSVGimage* image = NULL;
+
+	data = (char*)malloc(file_data_size + 1);
+	if (data == NULL) goto error;
+	memcpy(data, file_data, file_data_size);
+	data[file_data_size] = '\0';	// Must be null terminated.
+	image = nsvgParse(data, units, dpi);
+	free(data);
+	return image;
+
+error:
 	if (data) free(data);
 	if (image) nsvgDelete(image);
 	return NULL;
