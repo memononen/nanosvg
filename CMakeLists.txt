@@ -18,7 +18,6 @@ target_compile_definitions(nanosvg PRIVATE NANOSVG_IMPLEMENTATION)
 
 # Same for nanosvgrast
 add_library(nanosvgrast ${CMAKE_CURRENT_BINARY_DIR}/nanosvgrast.c)
-set_target_properties(nanosvgrast PROPERTIES LINKER_LANGUAGE C)
 target_link_libraries(nanosvgrast PUBLIC nanosvg)
 target_include_directories(nanosvgrast PRIVATE src)
 target_compile_definitions(nanosvgrast PRIVATE NANOSVGRAST_IMPLEMENTATION)
