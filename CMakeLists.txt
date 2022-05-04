@@ -7,7 +7,12 @@ configure_file(src/nanosvg.h ${CMAKE_CURRENT_BINARY_DIR}/nanosvg.c)
 configure_file(src/nanosvgrast.h ${CMAKE_CURRENT_BINARY_DIR}/nanosvgrast.c)
 
 add_library(nanosvg ${CMAKE_CURRENT_BINARY_DIR}/nanosvg.c)
-target_link_libraries(nanosvg PRIVATE m)
+
+find_library(MATH_LIBRARY m) # Business as usual
+if(MATH_LIBRARY)
+    target_link_libraries(nanosvg PUBLIC ${MATH_LIBRARY})
+endif()
+
 target_include_directories(nanosvg PUBLIC $<INSTALL_INTERFACE:include/nanosvg>)
 target_compile_definitions(nanosvg PRIVATE NANOSVG_IMPLEMENTATION)
 
