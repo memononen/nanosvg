@@ -3005,6 +3005,6 @@ void nsvgDelete(NSVGimage* image)
 	free(image);
 }
 
-#endif
+#endif // NANOSVG_IMPLEMENTATION
 
 #endif // NANOSVG_H
