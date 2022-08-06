@@ -1456,6 +1456,6 @@ void nsvgRasterize(NSVGrasterizer* r,
 	r->stride = 0;
 }
 
-#endif
+#endif // NANOSVGRAST_IMPLEMENTATION
 
 #endif // NANOSVGRAST_H
