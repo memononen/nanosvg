@@ -798,7 +798,6 @@ static float nsvg__convertToPixels(NSVGparser* p, NSVGcoordinate c, float orig, 
 		case NSVG_UNITS_PERCENT:	return orig + c.value / 100.0f * length;
 		default:					return c.value;
 	}
-	return c.value;
 }
 
 static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
@@ -1232,7 +1231,7 @@ static unsigned int nsvg__parseColorRGB(const char* str)
 	unsigned int rgbi[3];
 	float rgbf[3];
 	// try decimal integers first
-	if (sscanf(str, "rgb(%u, %u, %u)", &rgbi[0], &rgbi[1], &rgbi[2]) != 3) {
+	if (sscanf_s(str, "rgb(%u, %u, %u)", &rgbi[0], &rgbi[1], &rgbi[2]) != 3) {
 		// integers failed, try percent values (float, locale independent)
 		const char delimiter[3] = {',', ',', ')'};
 		str += 4; // skip "rgb("
@@ -1240,7 +1239,7 @@ static unsigned int nsvg__parseColorRGB(const char* str)
 			while (*str && (nsvg__isspace(*str))) str++; 	// skip leading spaces
 			if (*str == '+') str++;				// skip '+' (don't allow '-')
 			if (!*str) break;
-			rgbf[i] = nsvg__atof(str);
+			rgbf[i] = float(nsvg__atof(str));
 
 			// Note 1: it would be great if nsvg__atof() returned how many
 			// bytes it consumed but it doesn't. We need to skip the number,
@@ -1262,9 +1261,9 @@ static unsigned int nsvg__parseColorRGB(const char* str)
 			else break;
 		}
 		if (i == 3) {
-			rgbi[0] = roundf(rgbf[0] * 2.55f);
-			rgbi[1] = roundf(rgbf[1] * 2.55f);
-			rgbi[2] = roundf(rgbf[2] * 2.55f);
+			rgbi[0] = unsigned int(roundf(rgbf[0] * 2.55f));
+			rgbi[1] = unsigned int(roundf(rgbf[1] * 2.55f));
+			rgbi[2] = unsigned int(roundf(rgbf[2] * 2.55f));
 		} else {
 			rgbi[0] = rgbi[1] = rgbi[2] = 128;
 		}
