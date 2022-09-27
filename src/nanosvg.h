@@ -138,6 +138,7 @@ typedef struct NSVGpath
 typedef struct NSVGshape
 {
 	char id[64];				// Optional 'id' attr of the shape or its group
+	char title[64];             // Optional 'title' of the shape or its ancestor(s)
 	NSVGpaint fill;				// Fill paint
 	NSVGpaint stroke;			// Stroke paint
 	float opacity;				// Opacity of the shape.
@@ -183,6 +184,7 @@ void nsvgDelete(NSVGimage* image);
 
 #ifdef NANOSVG_IMPLEMENTATION
 
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -410,6 +412,7 @@ typedef struct NSVGgradientData
 typedef struct NSVGattrib
 {
 	char id[64];
+	char title[64];
 	float xform[6];
 	unsigned int fillColor;
 	unsigned int strokeColor;
@@ -451,6 +454,8 @@ typedef struct NSVGparser
 	float dpi;
 	char pathFlag;
 	char defsFlag;
+	char titleFlag;
+	char shapeFlag;
 } NSVGparser;
 
 static void nsvg__xformIdentity(float* t)
@@ -955,6 +960,7 @@ static void nsvg__addShape(NSVGparser* p)
 	memset(shape, 0, sizeof(NSVGshape));
 
 	memcpy(shape->id, attr->id, sizeof shape->id);
+	memcpy(shape->title, attr->title, sizeof shape->title);
 	scale = nsvg__getAverageScale(attr->xform);
 	shape->strokeWidth = attr->strokeWidth * scale;
 	shape->strokeDashOffset = attr->strokeDashOffset * scale;
@@ -2759,30 +2765,38 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		if (p->pathFlag)	// Do not allow nested paths.
 			return;
 		nsvg__pushAttr(p);
+		p->pathFlag = 1;
+		p->shapeFlag = 1;
 		nsvg__parsePath(p, attr);
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "rect") == 0) {
 		nsvg__pushAttr(p);
+		p->shapeFlag = 1;
 		nsvg__parseRect(p, attr);
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "circle") == 0) {
 		nsvg__pushAttr(p);
+		p->shapeFlag = 1;
 		nsvg__parseCircle(p, attr);
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "ellipse") == 0) {
 		nsvg__pushAttr(p);
+		p->shapeFlag = 1;
 		nsvg__parseEllipse(p, attr);
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "line") == 0)  {
 		nsvg__pushAttr(p);
+		p->shapeFlag = 1;
 		nsvg__parseLine(p, attr);
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "polyline") == 0)  {
 		nsvg__pushAttr(p);
+		p->shapeFlag = 1;
 		nsvg__parsePoly(p, attr, 0);
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "polygon") == 0)  {
 		nsvg__pushAttr(p);
+		p->shapeFlag = 1;
 		nsvg__parsePoly(p, attr, 1);
 		nsvg__popAttr(p);
 	} else  if (strcmp(el, "linearGradient") == 0) {
@@ -2795,6 +2809,8 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		p->defsFlag = 1;
 	} else if (strcmp(el, "svg") == 0) {
 		nsvg__parseSVG(p, attr);
+	} else if (strcmp(el, "title") == 0) {
+		p->titleFlag = 1;
 	}
 }
 
@@ -2806,16 +2822,43 @@ static void nsvg__endElement(void* ud, const char* el)
 		nsvg__popAttr(p);
 	} else if (strcmp(el, "path") == 0) {
 		p->pathFlag = 0;
+		p->shapeFlag = 0;
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 0;
+	} else if (strcmp(el, "title") == 0) {
+		p->titleFlag = 0;
+	} else if (strcmp(el, "rect") == 0 ||
+			   strcmp(el, "circle") == 0 ||
+			   strcmp(el, "ellipse") == 0 ||
+			   strcmp(el, "line") == 0 ||
+			   strcmp(el, "polyline") == 0 ||
+			   strcmp(el, "polygon") == 0) {
+		p->shapeFlag = 0;
 	}
 }
 
 static void nsvg__content(void* ud, const char* s)
 {
-	NSVG_NOTUSED(ud);
-	NSVG_NOTUSED(s);
-	// empty
+	NSVGparser* p = (NSVGparser*)ud;
+	if (p->titleFlag) {
+		int len = strlen(s);
+		const int lim = sizeof(((NSVGshape *)(nullptr))->title);
+		if(len > lim-1)
+			len = lim-1;
+		if (p->shapeFlag) {
+			NSVGshape *shape = p->image->shapes;
+			while (shape->next)
+				shape = shape->next;
+			if (shape) {
+				memcpy(shape->title, s, len);
+				memset(shape->title + len, 0, lim-len);
+			}
+		} else {
+			NSVGattrib* attr = nsvg__getAttr(p);
+			memcpy(attr->title, s, len);
+			memset(attr->title + len, 0, lim-len);
+		}
+	}
 }
 
 static void nsvg__imageBounds(NSVGparser* p, float* bounds)
