@@ -1191,7 +1191,7 @@ static const char* nsvg__getNextPathItemWhenArcFlag(const char* s, char* it)
 	while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
 	if (!*s) return s;
 	if (*s == '0' || *s == '1') {
-	it[0] = *s++;
+		it[0] = *s++;
 		it[1] = '\0';
 		return s;
 	}
