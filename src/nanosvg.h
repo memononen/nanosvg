@@ -1187,15 +1187,15 @@ static const char* nsvg__parseNumber(const char* s, char* it, const int size)
 
 static const char* nsvg__getNextPathItemWhenArcFlag(const char* s, char* it)
 {
-  it[0] = '\0';
-  while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
-  if (!*s) return s;
-  if (*s == '0' || *s == '1') {
-    it[0] = *s++;
-    it[1] = '\0';
-    return s;
-  }
-  return s;
+	it[0] = '\0';
+	while (*s && (nsvg__isspace(*s) || *s == ',')) s++;
+	if (!*s) return s;
+	if (*s == '0' || *s == '1') {
+	it[0] = *s++;
+		it[1] = '\0';
+		return s;
+	}
+	return s;
 }
 
 static const char* nsvg__getNextPathItem(const char* s, char* it)
