@@ -162,12 +162,21 @@ typedef struct NSVGimage
 	NSVGshape* shapes;			// Linked list of shapes in the image.
 } NSVGimage;
 
+typedef int (*NSVGparseXML)(char* input,
+	void (*startelCb)(void* ud, const char* el, const char** attr),
+	void (*endelCb)(void* ud, const char* el),
+	void (*contentCb)(void* ud, const char* s),
+	void* ud);
+
 // Parses SVG file from a file, returns SVG image as paths.
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi);
 
 // Parses SVG file from a null terminated string, returns SVG image as paths.
 // Important note: changes the string.
 NSVGimage* nsvgParse(char* input, const char* units, float dpi);
+
+// Like nsvgParse, but using the given custom XML parser.
+NSVGimage* nsvgParseEx(char* input, const char* units, float dpi, NSVGparseXML parser);
 
 // Duplicates a path.
 NSVGpath* nsvgDuplicatePath(NSVGpath* p);
@@ -2966,7 +2975,7 @@ static void nsvg__scaleToViewbox(NSVGparser* p, const char* units)
 	}
 }
 
-NSVGimage* nsvgParse(char* input, const char* units, float dpi)
+NSVGimage* nsvgParseEx(char* input, const char* units, float dpi, NSVGparseXML parse)
 {
 	NSVGparser* p;
 	NSVGimage* ret = 0;
@@ -2977,7 +2986,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	}
 	p->dpi = dpi;
 
-	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
+	parse(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
 
 	// Scale to viewBox
 	nsvg__scaleToViewbox(p, units);
@@ -2988,6 +2997,11 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	nsvg__deleteParser(p);
 
 	return ret;
+}
+
+NSVGimage* nsvgParse(char* input, const char* units, float dpi)
+{
+	return nsvgParseEx(input, units, dpi, nsvg__parseXML);
 }
 
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
