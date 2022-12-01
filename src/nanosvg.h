@@ -997,6 +997,11 @@ static void nsvg__addShape(NSVGparser* p)
 		if (shape->fill.gradient == NULL) {
 			shape->fill.type = NSVG_PAINT_NONE;
 		}
+    for (int i = 0; i < shape->fill.gradient->nstops; i++) {
+      unsigned int alpha = (shape->fill.gradient->stops[i].color >> 24) * attr->fillOpacity;
+      shape->fill.gradient->stops[i].color &=0x00FFFFFF;
+      shape->fill.gradient->stops[i].color |= alpha << 24;
+    }
 	}
 
 	// Set stroke
