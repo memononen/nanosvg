@@ -114,7 +114,7 @@ typedef struct NSVGmemPage {
 } NSVGmemPage;
 
 typedef struct NSVGcachedPaint {
-	char type;
+	signed char type;
 	char spread;
 	float xform[6];
 	unsigned int colors[256];

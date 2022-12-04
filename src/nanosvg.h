@@ -398,7 +398,7 @@ typedef struct NSVGgradientData
 {
 	char id[64];
 	char ref[64];
-	char type;
+	signed char type;
 	union {
 		NSVGlinearData linear;
 		NSVGradialData radial;
@@ -818,7 +818,7 @@ static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
 	return NULL;
 }
 
-static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const float* localBounds, float *xform, char* paintType)
+static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const float* localBounds, float *xform, signed char* paintType)
 {
 	NSVGgradientData* data = NULL;
 	NSVGgradientData* ref = NULL;
@@ -2636,7 +2636,7 @@ static void nsvg__parseSVG(NSVGparser* p, const char** attr)
 	}
 }
 
-static void nsvg__parseGradient(NSVGparser* p, const char** attr, char type)
+static void nsvg__parseGradient(NSVGparser* p, const char** attr, signed char type)
 {
 	int i;
 	NSVGgradientData* grad = (NSVGgradientData*)malloc(sizeof(NSVGgradientData));
