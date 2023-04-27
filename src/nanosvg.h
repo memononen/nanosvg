@@ -171,7 +171,7 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 
 // Parses SVG file from a null terminated string, returns SVG image as paths.
 // Important note: changes the string.
-NSVGimage* nsvgParse(char* input, const char* units, float dpi);
+NSVGimage* nsvgParse(char* input, const char* units, float dpi, unsigned int defaultFillColor = 0, unsigned int defaultStrokeColor = 0);
 
 // Duplicates a path.
 NSVGpath* nsvgDuplicatePath(NSVGpath* p);
@@ -2991,7 +2991,7 @@ static void nsvg__createGradients(NSVGparser* p)
 	}
 }
 
-NSVGimage* nsvgParse(char* input, const char* units, float dpi)
+NSVGimage* nsvgParse(char* input, const char* units, float dpi, unsigned int defaultFillColor, unsigned int defaultStrokeColor)
 {
 	NSVGparser* p;
 	NSVGimage* ret = 0;
@@ -3001,6 +3001,8 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 		return NULL;
 	}
 	p->dpi = dpi;
+	p->attr[0].fillColor = defaultFillColor;
+	p->attr[0].strokeColor = defaultStrokeColor;
 
 	nsvg__parseXML(input, nsvg__startElement, nsvg__endElement, nsvg__content, p);
 
