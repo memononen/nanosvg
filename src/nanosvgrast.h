@@ -354,8 +354,8 @@ static void nsvg__flattenCubicBez(NSVGrasterizer* r,
 
 	dx = x4 - x1;
 	dy = y4 - y1;
-	d2 = nsvg__absf(((x2 - x4) * dy - (y2 - y4) * dx));
-	d3 = nsvg__absf(((x3 - x4) * dy - (y3 - y4) * dx));
+	d2 = nsvg__absf((x2 - x4) * dy - (y2 - y4) * dx);
+	d3 = nsvg__absf((x3 - x4) * dy - (y3 - y4) * dx);
 
 	if ((d2 + d3)*(d2 + d3) < r->tessTol * (dx*dx + dy*dy)) {
 		nsvg__addPathPoint(r, x4, y4, type);
