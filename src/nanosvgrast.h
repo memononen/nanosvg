@@ -1284,8 +1284,9 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 		for (i = 0; i < 256; i++)
 			cache->colors[i] = 0;
 	} else if (grad->nstops == 1) {
+		unsigned int color = nsvg__applyOpacity(grad->stops[0].color, opacity);
 		for (i = 0; i < 256; i++)
-			cache->colors[i] = nsvg__applyOpacity(grad->stops[i].color, opacity);
+			cache->colors[i] = color;
 	} else {
 		unsigned int ca, cb = 0;
 		float ua, ub, du, u;
