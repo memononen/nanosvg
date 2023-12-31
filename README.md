@@ -16,7 +16,7 @@ NanoSVG supports a wide range of SVG features, but something may be missing, fee
 The shapes in the SVG images are transformed by the viewBox and converted to specified units.
 That is, you should get the same looking data as your designed in your favorite app.
 
-NanoSVG can return the paths in few different units. For example if you want to render an image, you may choose
+NanoSVG can return the paths in a few different units. For example if you want to render an image, you may choose
 to get the paths in pixels, or if you are feeding the data into a CNC-cutter, you may want to use millimeters. 
 
 The units passed to NanoSVG should be one of: 'px', 'pt', 'pc' 'mm', 'cm', or 'in'.
@@ -28,9 +28,9 @@ If you don't know or care about the units stuff, "px" and 96 should get you goin
 
 ![screenshot of tiger.svg rendered with NanoSVG rasterizer](/example/screenshot-2.png?raw=true)
 
-The parser library is accompanied with really simpler SVG rasterizer. Currently it only renders flat filled shapes.
+The parser library is accompanied with a really simpler SVG rasterizer. Currently it only renders flat filled shapes.
 
-The intended usage for the rasterizer is to for example bake icons of different size into a texture. The rasterizer is not particular fast or accurate, but it's small and packed in one header file.
+The intended usage for the rasterizer is to for example bake icons of different sizes into a texture. The rasterizer is not particularly fast or accurate, but it's small and packed in one header file.
 
 
 ## Example Usage
@@ -90,15 +90,15 @@ target_link_libraries(myexe NanoSVG::nanosvg NanoSVG::nanosvgrast)
 
 ## Compiling Example Project
 
-In order to compile the demo project, your will need to install [GLFW](http://www.glfw.org/) to compile.
+In order to compile the demo project, you will need to install [GLFW](http://www.glfw.org/) to compile.
 
-NanoSVG demo project uses [premake4](http://industriousone.com/premake) to build platform specific projects, now is good time to install it if you don't have it already. To build the example, navigate into the root folder in your favorite terminal, then:
+NanoSVG demo project uses [premake4](http://industriousone.com/premake) to build platform specific projects, now is a good time to install it if you don't have it already. To build the example, navigate into the root folder in your favorite terminal, then:
 
 - *OS X*: `premake4 xcode4`
 - *Windows*: `premake4 vs2010`
 - *Linux*: `premake4 gmake`
 
-See premake4 documentation for full list of supported build file types. The projects will be created in `build` folder. An example of building and running the example on OS X:
+See premake4 documentation for a full list of supported build file types. The projects will be created in the `build` folder. An example of building and running the example on OS X:
 
 ```bash
 $ premake4 gmake
