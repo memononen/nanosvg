@@ -346,6 +346,7 @@ static float nsvg__normalize(float *x, float* y)
 }
 
 static float nsvg__absf(float x) { return x < 0 ? -x : x; }
+static float nsvg__roundf(float x) { return (x >= 0) ? floorf(x + 0.5) : ceilf(x - 0.5); }
 
 static void nsvg__flattenCubicBez(NSVGrasterizer* r,
 								  float x1, float y1, float x2, float y2,
@@ -368,8 +369,8 @@ static void nsvg__flattenCubicBez(NSVGrasterizer* r,
 
 	dx = x4 - x1;
 	dy = y4 - y1;
-	d2 = nsvg__absf(((x2 - x4) * dy - (y2 - y4) * dx));
-	d3 = nsvg__absf(((x3 - x4) * dy - (y3 - y4) * dx));
+	d2 = nsvg__absf((x2 - x4) * dy - (y2 - y4) * dx);
+	d3 = nsvg__absf((x3 - x4) * dy - (y3 - y4) * dx);
 
 	if ((d2 + d3)*(d2 + d3) < r->tessTol * (dx*dx + dy*dy)) {
 		nsvg__addPathPoint(r, x4, y4, type);
@@ -888,10 +889,10 @@ static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float sta
 //	STBTT_assert(e->y0 <= start_point);
 	// round dx down to avoid going too far
 	if (dxdy < 0)
-		z->dx = (int)(-floorf(NSVG__FIX * -dxdy));
+		z->dx = (int)(-nsvg__roundf(NSVG__FIX * -dxdy));
 	else
-		z->dx = (int)floorf(NSVG__FIX * dxdy);
-	z->x = (int)floorf(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
+		z->dx = (int)nsvg__roundf(NSVG__FIX * dxdy);
+	z->x = (int)nsvg__roundf(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
 //	z->x -= off_x * FIX;
 	z->ey = e->y1;
 	z->next = 0;
@@ -1298,9 +1299,10 @@ static void nsvg__initPaint(NSVGcachedPaint* cache, NSVGpaint* paint, float opac
 	if (grad->nstops == 0) {
 		for (i = 0; i < 256; i++)
 			cache->colors[i] = 0;
-	} if (grad->nstops == 1) {
+	} else if (grad->nstops == 1) {
+		unsigned int color = nsvg__applyOpacity(grad->stops[0].color, opacity);
 		for (i = 0; i < 256; i++)
-			cache->colors[i] = nsvg__applyOpacity(grad->stops[i].color, opacity);
+			cache->colors[i] = color;
 	} else {
 		unsigned int ca, cb = 0;
 		float ua, ub, du, u;
@@ -1389,6 +1391,9 @@ void nsvgRasterizeXY(NSVGrasterizer* r,
 	NSVGedge *e = NULL;
 	NSVGcachedPaint cache;
 	int i;
+    int j;
+    unsigned char paintOrder;
+	const float sw = (sx + sy) / 2; // average scaling factor
 
 	r->bitmap = dst;
 	r->width = w;
@@ -1408,58 +1413,62 @@ void nsvgRasterizeXY(NSVGrasterizer* r,
 		if (!(shape->flags & NSVG_FLAGS_VISIBLE))
 			continue;
 
-		if (shape->fill.type != NSVG_PAINT_NONE) {
-			nsvg__resetPool(r);
-			r->freelist = NULL;
-			r->nedges = 0;
+        for (j = 0; j < 3; j++) {
+            paintOrder = (shape->paintOrder >> (2 * j)) & 0x03;
 
-			nsvg__flattenShape(r, shape, sx, sy);
+            if (paintOrder == NSVG_PAINT_FILL && shape->fill.type != NSVG_PAINT_NONE) {
+                nsvg__resetPool(r);
+                r->freelist = NULL;
+                r->nedges = 0;
 
-			// Scale and translate edges
-			for (i = 0; i < r->nedges; i++) {
-				e = &r->edges[i];
-				e->x0 = tx + e->x0;
-				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
-				e->x1 = tx + e->x1;
-				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
-			}
+                nsvg__flattenShape(r, shape, sx, sy);
 
-			// Rasterize edges
-			if (r->nedges != 0)
-				qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+                // Scale and translate edges
+                for (i = 0; i < r->nedges; i++) {
+                    e = &r->edges[i];
+                    e->x0 = tx + e->x0;
+                    e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+                    e->x1 = tx + e->x1;
+                    e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+                }
 
-			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
-			nsvg__initPaint(&cache, &shape->fill, shape->opacity);
+                // Rasterize edges
+                if (r->nedges != 0)
+                    qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
 
-			nsvg__rasterizeSortedEdges(r, tx,ty, sx, sy, &cache, shape->fillRule);
-		}
-		if (shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * sx) > 0.01f) {
-			nsvg__resetPool(r);
-			r->freelist = NULL;
-			r->nedges = 0;
+                // now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+                nsvg__initPaint(&cache, &shape->fill, shape->opacity);
 
-			nsvg__flattenShapeStroke(r, shape, sx, sy);
+                nsvg__rasterizeSortedEdges(r, tx, ty, sx, sy, &cache, shape->fillRule);
+            }
+            if (paintOrder == NSVG_PAINT_STROKE && shape->stroke.type != NSVG_PAINT_NONE && (shape->strokeWidth * sw) > 0.01f) {
+                nsvg__resetPool(r);
+                r->freelist = NULL;
+                r->nedges = 0;
 
-//			dumpEdges(r, "edge.svg");
+                nsvg__flattenShapeStroke(r, shape, sx, sy);
 
-			// Scale and translate edges
-			for (i = 0; i < r->nedges; i++) {
-				e = &r->edges[i];
-				e->x0 = tx + e->x0;
-				e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
-				e->x1 = tx + e->x1;
-				e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
-			}
+    //			dumpEdges(r, "edge.svg");
 
-			// Rasterize edges
-			if (r->nedges != 0)
-				qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
+                // Scale and translate edges
+                for (i = 0; i < r->nedges; i++) {
+                    e = &r->edges[i];
+                    e->x0 = tx + e->x0;
+                    e->y0 = (ty + e->y0) * NSVG__SUBSAMPLES;
+                    e->x1 = tx + e->x1;
+                    e->y1 = (ty + e->y1) * NSVG__SUBSAMPLES;
+                }
 
-			// now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
-			nsvg__initPaint(&cache, &shape->stroke, shape->opacity);
+                // Rasterize edges
+                if (r->nedges != 0)
+                    qsort(r->edges, r->nedges, sizeof(NSVGedge), nsvg__cmpEdge);
 
-			nsvg__rasterizeSortedEdges(r, tx,ty,sx, sy, &cache, NSVG_FILLRULE_NONZERO);
-		}
+                // now, traverse the scanlines and find the intersections on each scanline, use non-zero rule
+                nsvg__initPaint(&cache, &shape->stroke, shape->opacity);
+
+                nsvg__rasterizeSortedEdges(r, tx, ty, sx, sy, &cache, NSVG_FILLRULE_NONZERO);
+            }
+        }
 	}
 
 	nsvg__unpremultiplyAlpha(dst, w, h, stride);
