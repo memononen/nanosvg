@@ -22,11 +22,6 @@
  *
  */
 
-/* Modified by FLTK to support non-square X,Y axes scaling.
- *
- * Added: nsvgRasterizeXY()
-*/
-
 
 #ifndef NANOSVGRAST_H
 #define NANOSVGRAST_H
