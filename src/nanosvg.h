@@ -194,10 +194,12 @@ void nsvgDelete(NSVGimage* image);
 
 #ifdef NANOSVG_IMPLEMENTATION
 
+#define _XOPEN_SOURCE 700
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <locale.h>
 
 #define NSVG_PI (3.14159265358979323846264338327f)
 #define NSVG_KAPPA90 (0.5522847493f)	// Length proportional to radius of a cubic bezier handle for 90deg arcs.
@@ -220,8 +222,12 @@ void nsvgDelete(NSVGimage* image);
 	#else
 	#define NSVG_INLINE
 	#endif
+	#define NSVG_USELOCALE _configthreadlocale(_ENABLE_PER_THREAD_LOCALE); setlocale(LC_ALL, "C")
+	#define NSVG_RESTORELOCALE _configthreadlocale(_DISABLE_PER_THREAD_LOCALE); setlocale(LC_ALL, "")
 #else
 	#define NSVG_INLINE inline
+	#define NSVG_USELOCALE locale_t l = newlocale(LC_ALL_MASK, "C", (locale_t)0); locale_t previous = uselocale(l)
+	#define NSVG_RESTORELOCALE uselocale(previous); freelocale(l)
 #endif
 
 
@@ -3030,8 +3036,10 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	NSVGparser* p;
 	NSVGimage* ret = 0;
 
+	NSVG_USELOCALE;
 	p = nsvg__createParser();
 	if (p == NULL) {
+		NSVG_RESTORELOCALE;
 		return NULL;
 	}
 	p->dpi = dpi;
@@ -3048,7 +3056,7 @@ NSVGimage* nsvgParse(char* input, const char* units, float dpi)
 	p->image = NULL;
 
 	nsvg__deleteParser(p);
-
+	NSVG_RESTORELOCALE;
 	return ret;
 }
 
