@@ -264,7 +264,7 @@ static void nsvg__parseElement(char* s,
 {
 	const char* attr[NSVG_XML_MAX_ATTRIBS];
 	int nattr = 0;
-	char* name;
+	char* tagName;
 	int start = 0;
 	int end = 0;
 	char quote;
@@ -285,7 +285,7 @@ static void nsvg__parseElement(char* s,
 		return;
 
 	// Get tag name
-	name = s;
+	tagName = s;
 	while (*s && !nsvg__isspace(*s)) s++;
 	if (*s) { *s++ = '\0'; }
 
@@ -328,9 +328,9 @@ static void nsvg__parseElement(char* s,
 
 	// Call callbacks.
 	if (start && startelCb)
-		(*startelCb)(ud, name, attr);
+		(*startelCb)(ud, tagName, attr);
 	if (end && endelCb)
-		(*endelCb)(ud, name);
+		(*endelCb)(ud, tagName);
 }
 
 int nsvg__parseXML(char* input,
@@ -815,7 +815,6 @@ static float nsvg__convertToPixels(NSVGparser* p, NSVGcoordinate c, float orig, 
 		case NSVG_UNITS_PERCENT:	return orig + c.value / 100.0f * length;
 		default:					return c.value;
 	}
-	return c.value;
 }
 
 static NSVGgradientData* nsvg__findGradientData(NSVGparser* p, const char* id)
@@ -967,7 +966,7 @@ static void nsvg__addShape(NSVGparser* p)
 		return;
 
 	shape = (NSVGshape*)malloc(sizeof(NSVGshape));
-	if (shape == NULL) goto error;
+	if (shape == NULL) return;
 	memset(shape, 0, sizeof(NSVGshape));
 
 	memcpy(shape->id, attr->id, sizeof shape->id);
@@ -1033,11 +1032,6 @@ static void nsvg__addShape(NSVGparser* p)
 	else
 		p->shapesTail->next = shape;
 	p->shapesTail = shape;
-
-	return;
-
-error:
-	if (shape) free(shape);
 }
 
 static void nsvg__addPath(NSVGparser* p, char closed)
@@ -3063,6 +3057,7 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 	if (!fp) goto error;
 	fseek(fp, 0, SEEK_END);
 	size = ftell(fp);
+	if (size <= 0) goto error;
 	fseek(fp, 0, SEEK_SET);
 	data = (char*)malloc(size+1);
 	if (data == NULL) goto error;
@@ -3077,7 +3072,6 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 error:
 	if (fp) fclose(fp);
 	if (data) free(data);
-	if (image) nsvgDelete(image);
 	return NULL;
 }
 
