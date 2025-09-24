@@ -68,7 +68,16 @@ void nsvgRasterize(NSVGrasterizer* r,
 				   NSVGimage* image, float tx, float ty, float scale,
 				   unsigned char* dst, int w, int h, int stride);
 
-// As above, but allow X and Y axes to scale independently for non-square aspects
+// Similar to nsvgRasterize, but allow X and Y axes to scale independently for
+// non-square aspects
+//   r - pointer to rasterizer context
+//   image - pointer to image to rasterize
+//   tx,ty - image offset (applied after scaling)
+//   sx,sy - image scale (assumes square aspect ratio)
+//   dst - pointer to destination image data, 4 bytes per pixel (RGBA)
+//   w - width of the image to render
+//   h - height of the image to render
+//   stride - number of bytes per scaleline in the destination buffer
 void nsvgRasterizeXY(NSVGrasterizer* r,
 				   NSVGimage* image, float tx, float ty,
 				   float sx, float sy,
