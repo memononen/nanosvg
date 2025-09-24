@@ -26,44 +26,48 @@
 #define NANOSVGRAST_IMPLEMENTATION
 #include "nanosvgrast.h"
 
-int main()
+int main(int argc, char * argv[])
 {
 	NSVGimage *image = NULL;
 	NSVGrasterizer *rast = NULL;
 	unsigned char* img = NULL;
 	int w, h;
-	const char* filename = "../example/23.svg";
+	const char* filename;
+	char outfile[4096];
 
-	printf("parsing %s\n", filename);
-	image = nsvgParseFromFile(filename, "px", 96.0f);
-	if (image == NULL) {
-		printf("Could not open SVG image.\n");
-		goto error;
+	for (int argi = 1; argi < argc; argi++) {
+		filename = argv[argi];
+		printf("parsing %s\n", filename);
+		image = nsvgParseFromFile(filename, "px", 96.0f);
+		if (image == NULL) {
+			printf("Could not open SVG image.\n");
+			goto error;
+		}
+		w = (int)image->width;
+		h = (int)image->height;
+
+		rast = nsvgCreateRasterizer();
+		if (rast == NULL) {
+			printf("Could not init rasterizer for '%s'.\n", filename);
+			goto error;
+		}
+
+		img = malloc(w*h*4);
+		if (img == NULL) {
+			printf("Could not alloc image buffer for '%s'.\n", filename);
+			goto error;
+		}
+
+		printf("rasterizing image %d x %d\n", w, h);
+		nsvgRasterize(rast, image, 0,0,1, img, w, h, w*4);
+		snprintf(outfile, sizeof(outfile), "%s.png", filename);
+		printf("writing %s\n", outfile);
+		stbi_write_png(outfile, w, h, 4, img, w*4);
+
+	error:
+		nsvgDeleteRasterizer(rast);
+		nsvgDelete(image);
 	}
-	w = (int)image->width;
-	h = (int)image->height;
-
-	rast = nsvgCreateRasterizer();
-	if (rast == NULL) {
-		printf("Could not init rasterizer.\n");
-		goto error;
-	}
-
-	img = malloc(w*h*4);
-	if (img == NULL) {
-		printf("Could not alloc image buffer.\n");
-		goto error;
-	}
-
-	printf("rasterizing image %d x %d\n", w, h);
-	nsvgRasterize(rast, image, 0,0,1, img, w, h, w*4);
-
-	printf("writing svg.png\n");
- 	stbi_write_png("svg.png", w, h, 4, img, w*4);
-
-error:
-	nsvgDeleteRasterizer(rast);
-	nsvgDelete(image);
 
 	return 0;
 }

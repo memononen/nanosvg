@@ -31,10 +31,10 @@ solution "nanosvg"
 			defines { "NDEBUG" }
 			flags { "Optimize", "ExtraWarnings"}    
 
-	project "example2"
+	project "nanosvg"
 		kind "ConsoleApp"
 		language "C++"
-		files { "example/example2.c", "example/*.h", "src/*.h" }
+		files { "example/nanosvg.c", "example/*.h", "src/*.h" }
 		includedirs { "example", "src" }
 		targetdir("build")
 	 
