@@ -882,6 +882,7 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 	}
 	if (stops == NULL) return NULL;
 
+	if (nstops < 1) return NULL;
 	grad = (NSVGgradient*)malloc(sizeof(NSVGgradient) + sizeof(NSVGgradientStop)*(nstops-1));
 	if (grad == NULL) return NULL;
 
@@ -930,6 +931,7 @@ static NSVGgradient* nsvg__createGradient(NSVGparser* p, const char* id, const f
 	nsvg__xformMultiply(grad->xform, xform);
 
 	grad->spread = data->spread;
+	if (nstops > ref->nstops) nstops = ref->nstops;
 	memcpy(grad->stops, stops, nstops*sizeof(NSVGgradientStop));
 	grad->nstops = nstops;
 
