@@ -2342,6 +2342,9 @@ static void nsvg__parsePath(NSVGparser* p, const char** attr)
 	const char* s = NULL;
 	char cmd = '\0';
 	float args[10];
+#if defined(_MSC_VER) && !defined(__clang__) && defined(_M_IX86_FP) && _M_IX86_FP == 0
+	memset(args, 0, sizeof(args)); // x87 codegen preloads not-yet-filled args[] into the FPU stack; uninitialized sNaN bits trigger FPE
+#endif
 	int nargs;
 	int rargs = 0;
 	char initPoint;
