@@ -3206,9 +3206,10 @@ NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi)
 
 	fp = fopen(filename, "rb");
 	if (!fp) goto error;
-	fseek(fp, 0, SEEK_END);
+	if (fseek(fp, 0, SEEK_END)) goto error;
 	size = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	if (size == -1l) goto error;
+	if (fseek(fp, 0, SEEK_SET)) goto error;
 	data = (char*)malloc(size+1);
 	if (data == NULL) goto error;
 	if (fread(data, 1, size, fp) != size) goto error;
