@@ -192,6 +192,8 @@ void nsvgDelete(NSVGimage* image);
 #endif
 #endif
 
+#endif // NANOSVG_H
+
 #ifdef NANOSVG_IMPLEMENTATION
 
 #include <string.h>
@@ -3274,5 +3276,3 @@ void nsvgDelete(NSVGimage* image)
 }
 
 #endif // NANOSVG_IMPLEMENTATION
-
-#endif // NANOSVG_H
