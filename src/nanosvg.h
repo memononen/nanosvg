@@ -2301,6 +2301,18 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 	else if (fs == 1 && da < 0)
 		da += 2 * NSVG_PI;
 
+	// If the swept angle is too small for the kappa formula to be numerically
+	// reliable, the arc degenerates to a line. (1 - cos(hda)) / sin(hda)
+	// suffers catastrophic cancellation in float32 when hda < ~1e-3, which
+	// corresponds to |da| < ~2e-3 (ndivs = 1 in this range, so hda = da/2).
+	// Also covers the huge-radii / tiny-chord case where da collapses to ~0.
+	if (fabsf(da) < 2e-3f) {
+		nsvg__lineTo(p, x2, y2);
+		*cpx = x2;
+		*cpy = y2;
+		return;
+	}
+
 	// Approximate the arc using cubic spline segments.
 	t[0] = cosrx; t[1] = sinrx;
 	t[2] = -sinrx; t[3] = cosrx;
@@ -2310,12 +2322,7 @@ static void nsvg__pathArcTo(NSVGparser* p, float* cpx, float* cpy, float* args, 
 	// The loop assumes an iteration per end point (including start and end), this +1.
 	ndivs = (int)(fabsf(da) / (NSVG_PI*0.5f) + 1.0f);
 	hda = (da / (float)ndivs) / 2.0f;
-	// Fix for ticket #179: division by 0: avoid cotangens around 0 (infinite)
-	if ((hda < 1e-3f) && (hda > -1e-3f))
-		hda *= 0.5f;
-	else
-		hda = (1.0f - cosf(hda)) / sinf(hda);
-	kappa = fabsf(4.0f / 3.0f * hda);
+	kappa = fabsf(4.0f / 3.0f * (1.0f - cosf(hda)) / sinf(hda));
 	if (da < 0.0f)
 		kappa = -kappa;
 
