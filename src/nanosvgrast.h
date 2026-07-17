@@ -68,12 +68,6 @@ void nsvgRasterize(NSVGrasterizer* r,
 void nsvgDeleteRasterizer(NSVGrasterizer*);
 
 
-#ifndef NANOSVGRAST_CPLUSPLUS
-#ifdef __cplusplus
-}
-#endif
-#endif
-
 #ifdef NANOSVGRAST_IMPLEMENTATION
 
 #include <math.h>
@@ -1468,5 +1462,11 @@ void nsvgRasterize(NSVGrasterizer* r,
 }
 
 #endif // NANOSVGRAST_IMPLEMENTATION
+
+#ifndef NANOSVGRAST_CPLUSPLUS
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif // NANOSVGRAST_H
