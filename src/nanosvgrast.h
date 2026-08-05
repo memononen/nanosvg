@@ -43,7 +43,7 @@ typedef struct NSVGrasterizer NSVGrasterizer;
 	// Create rasterizer (can be used to render multiple images).
 	struct NSVGrasterizer* rast = nsvgCreateRasterizer();
 	// Allocate memory for image
-	unsigned char* img = malloc(w*h*4);
+	unsigned char* img = (unsigned char*) malloc(w*h*4);
 	// Rasterize
 	nsvgRasterize(rast, image, 0,0,1, img, w, h, w*4);
 */
