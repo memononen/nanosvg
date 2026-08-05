@@ -22,6 +22,9 @@ target_link_libraries(nanosvgrast PUBLIC nanosvg)
 target_include_directories(nanosvgrast PRIVATE src)
 target_compile_definitions(nanosvgrast PRIVATE NANOSVGRAST_IMPLEMENTATION)
 
+# Add soversion
+set_target_properties(nanosvg nanosvgrast PROPERTIES SOVERSION 0)
+
 # Installation and export:
 
 include(CMakePackageConfigHelpers)
