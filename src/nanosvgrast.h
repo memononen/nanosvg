@@ -332,6 +332,24 @@ static float nsvg__normalize(float *x, float* y)
 
 static float nsvg__absf(float x) { return x < 0 ? -x : x; }
 static float nsvg__roundf(float x) { return (x >= 0) ? floorf(x + 0.5) : ceilf(x - 0.5); }
+/* Round to nearest integer, clamped to the representable 'int' range. An SVG
+ * path coordinate can be arbitrarily large; scaling it by NSVG__FIX (1024)
+ * before the (int) cast would otherwise overflow (UB / UBSan float-cast-overflow). */
+static int nsvg__roundf_clamp(float x)
+{
+	float r = nsvg__roundf(x);
+	if (r >= 2147483647.0f) return 2147483647;
+	if (r <= -2147483648.0f) return (-2147483647 - 1);
+	return (int)r;
+}
+/* Saturating add, so the scanline stepping z->x += z->dx cannot overflow. */
+static int nsvg__iadd_sat(int a, int b)
+{
+	long long s = (long long)a + (long long)b;
+	if (s > 2147483647LL) return 2147483647;
+	if (s < -2147483648LL) return (-2147483647 - 1);
+	return (int)s;
+}
 
 static void nsvg__flattenCubicBez(NSVGrasterizer* r,
 								  float x1, float y1, float x2, float y2,
@@ -875,10 +893,10 @@ static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float sta
 //	STBTT_assert(e->y0 <= start_point);
 	// round dx down to avoid going too far
 	if (dxdy < 0)
-		z->dx = (int)(-nsvg__roundf(NSVG__FIX * -dxdy));
+		z->dx = -nsvg__roundf_clamp(NSVG__FIX * -dxdy);
 	else
-		z->dx = (int)nsvg__roundf(NSVG__FIX * dxdy);
-	z->x = (int)nsvg__roundf(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
+		z->dx = nsvg__roundf_clamp(NSVG__FIX * dxdy);
+	z->x = nsvg__roundf_clamp(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
 //	z->x -= off_x * FIX;
 	z->ey = e->y1;
 	z->next = 0;
@@ -1147,7 +1165,7 @@ static void nsvg__rasterizeSortedEdges(NSVGrasterizer *r, float tx, float ty, fl
 //					NSVG__assert(z->valid);
 					nsvg__freeActive(r, z);
 				} else {
-					z->x += z->dx; // advance to position for current scanline
+					z->x = nsvg__iadd_sat(z->x, z->dx); // advance to position for current scanline
 					step = &((*step)->next); // advance through list
 				}
 			}
