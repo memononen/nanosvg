@@ -35,7 +35,7 @@ extern "C" {
 #endif
 #endif
 
-// NanoSVG is a simple stupid single-header-file SVG parse. The output of the parser is a list of cubic bezier shapes.
+// NanoSVG is a simple stupid single-header-file SVG parser. The output of the parser is a list of cubic bezier shapes.
 //
 // The library suits well for anything from rendering scalable icons in your editor application to prototyping a game.
 //
@@ -535,7 +535,7 @@ static void nsvg__xformInverse(float* inv, float* t)
 {
 	double invdet, det = (double)t[0] * t[3] - (double)t[2] * t[1];
 	if (det > -1e-6 && det < 1e-6) {
-		nsvg__xformIdentity(t);
+		nsvg__xformIdentity(inv);
 		return;
 	}
 	invdet = 1.0 / det;
@@ -2704,7 +2704,7 @@ static void nsvg__parseSVG(NSVGparser* p, const char** attr)
 						p->alignX = NSVG_ALIGN_MID;
 					else if (strstr(attr[i + 1], "xMax") != 0)
 						p->alignX = NSVG_ALIGN_MAX;
-					// Parse X align
+					// Parse Y align
 					if (strstr(attr[i + 1], "yMin") != 0)
 						p->alignY = NSVG_ALIGN_MIN;
 					else if (strstr(attr[i + 1], "yMid") != 0)
