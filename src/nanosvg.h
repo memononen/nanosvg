@@ -472,6 +472,7 @@ typedef struct NSVGparser
 	float dpi;
 	char pathFlag;
 	char defsFlag;
+	char maskFlag;
 	char styleFlag;
 } NSVGparser;
 
@@ -2837,7 +2838,7 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 {
 	NSVGparser* p = (NSVGparser*)ud;
 
-	if (p->defsFlag) {
+	if (p->defsFlag || p->maskFlag) {
 		// Skip everything but gradients and styles in defs
 		if (strcmp(el, "linearGradient") == 0) {
 			nsvg__parseGradient(p, attr, NSVG_PAINT_LINEAR_GRADIENT);
@@ -2892,6 +2893,8 @@ static void nsvg__startElement(void* ud, const char* el, const char** attr)
 		nsvg__parseGradientStop(p, attr);
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 1;
+	} else if (strcmp(el, "mask") == 0) {
+		p->maskFlag = 1;
 	} else if (strcmp(el, "svg") == 0) {
 		nsvg__parseSVG(p, attr);
 	} else if (strcmp(el, "style") == 0) {
@@ -2909,6 +2912,8 @@ static void nsvg__endElement(void* ud, const char* el)
 		p->pathFlag = 0;
 	} else if (strcmp(el, "defs") == 0) {
 		p->defsFlag = 0;
+	} else if (strcmp(el, "mask") == 0) {
+		p->maskFlag = 0;
 	} else if (strcmp(el, "style") == 0) {
 		p->styleFlag = 0;
 	}
